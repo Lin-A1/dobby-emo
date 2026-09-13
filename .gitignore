@@ -1,0 +1,11 @@
+# 迭代产物与本地测试件，不入库
+temp/
+gui-test-screenshots/
+assets/sw-white/raw/
+assets/base/cand-*
+assets/base/test-happy.png
+assets/base/white-test2.png
+tools/*.log
+*.log
+.DS_Store
+Thumbs.db
