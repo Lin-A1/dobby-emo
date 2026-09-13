@@ -133,6 +133,13 @@
       this.imgA.draggable = this.imgB.draggable = false;
       this._front = this.imgA;
 
+      /* 加载门控：首图就绪前隐藏整个角色（避免光环/气泡先飘出来） */
+      root.classList.add("loading");
+      const reveal = () => root.classList.remove("loading");
+      this.imgA.addEventListener("load", reveal);
+      this.imgB.addEventListener("load", reveal);
+      if (this.imgA.complete && this.imgA.naturalWidth > 0) reveal();
+
       this.shadowEl = el("div", "dobby-shadow", root);
       this.tipsEl = el("div", "dobby-tips", root);
       this.zzzEl = el("div", "dobby-zzz", root);

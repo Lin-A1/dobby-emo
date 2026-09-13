@@ -142,7 +142,8 @@ body {
   transition: opacity .5s ease;
 }
 #dobby-layer.away { opacity: 0; }
-#dobby-layer .dobby { pointer-events: auto; cursor: grab; touch-action: none; }
+#dobby-layer .dobby { pointer-events: auto; cursor: grab; touch-action: none; transition: opacity .45s ease; }
+#dobby-layer .dobby.loading { opacity: 0; pointer-events: none; }
 #dobby-layer .dobby:active { cursor: grabbing; }
 
 /* ---- 角色 DOM（由 JS 创建） ---- */
@@ -410,7 +411,7 @@ select {
   .hero-panel {
     height: auto;
     min-height: 0;
-    padding: 26px 22px 178px;   /* 底部留出角色的位置 */
+    padding: 26px 22px 200px;   /* 底部留出角色的位置 */
     gap: 12px;
     justify-content: flex-start;
   }

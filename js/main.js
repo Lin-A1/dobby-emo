@@ -88,7 +88,7 @@
     if (mobile) {
       // 小屏：角色缩小并驻守 hero 右下角（hero 预留了底部空间）
       dobby.setViewportScale(0.62);
-      dobby.setAnchor(r.right - 92, r.bottom - 92);
+      dobby.setAnchor(r.right - 92, r.bottom - 84);
     } else if (innerWidth < 1100) {
       dobby.setViewportScale(0.82);
       dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.38);
@@ -101,10 +101,16 @@
   addEventListener("load", placeAnchor);
   addEventListener("resize", placeAnchor);
 
-  /* 滚出首屏时优雅退场（避免挡住下方内容），回来再出现 */
+  /* 滚出首屏时渐进淡出（避免挡住下方内容），回来再出现 */
   const updatePresence = () => {
     const r = hero.getBoundingClientRect();
-    layer.classList.toggle("away", r.bottom < 80);
+    const vh = innerHeight;
+    const visible = r.bottom > 60;
+    layer.classList.toggle("away", !visible);
+    // hero 只剩视口 40% 高度以下时开始线性淡出
+    layer.style.opacity = visible
+      ? Math.max(0, Math.min(1, (r.bottom - 60) / (vh * 0.4))).toFixed(2)
+      : "0";
   };
   addEventListener("scroll", updatePresence, { passive: true });
   updatePresence();
@@ -662,7 +668,7 @@
     localStorage.setItem("dobby-skin", s);
     // 注册表内就地替换图片路径
     DobbyEmotions.list().forEach((def) => {
-      def.img = `${SKINS[s]}/${def.id}.png`;
+      def.img = `${SKINS[s]}/${def.id}.webp`;
       const im = new Image(); im.src = def.img;   // 预载
     });
     skinToggle.textContent = s === "dark" ? "🤍" : "🖤";
