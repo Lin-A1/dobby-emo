@@ -84,7 +84,18 @@
   /* 布局稳定后把锚点钉到 hero 右侧空位（并随窗口变化保持） */
   const placeAnchor = () => {
     const r = hero.getBoundingClientRect();
-    dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.35);
+    const mobile = innerWidth < 700;
+    if (mobile) {
+      // 小屏：角色缩小并驻守 hero 右下角（hero 预留了底部空间）
+      dobby.setViewportScale(0.62);
+      dobby.setAnchor(r.right - 92, r.bottom - 92);
+    } else if (innerWidth < 1100) {
+      dobby.setViewportScale(0.82);
+      dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.38);
+    } else {
+      dobby.setViewportScale(1);
+      dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.35);
+    }
   };
   requestAnimationFrame(placeAnchor);
   addEventListener("load", placeAnchor);

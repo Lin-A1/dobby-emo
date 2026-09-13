@@ -2,9 +2,14 @@
 <html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Dobby Emo —— 可嵌入 AI 应用的表情层方案：18 种状态表情、行为反应层、JSON 协议接入，纯前端零依赖。">
+<meta property="og:title" content="Dobby Emo · 会表达情绪的 AI 助手小猫">
+<meta property="og:description" content="可嵌入 AI 应用的表情层：18 种状态表情 · 行为反应层 · JSON 协议 · 纯前端零依赖">
+<meta property="og:image" content="https://lin-a1.github.io/dobby-emo/docs/screenshots/dark.png">
+<link rel="icon" type="image/png" href="assets/sw/00.png">
 <title>Dobby Emo · 会表达情绪的小助手</title>
-<link rel="stylesheet" href="css/style.css?v=31">
+<link rel="stylesheet" href="css/style.css?v=34">
 </head>
 <body>
 
@@ -13,7 +18,7 @@
     <img src="assets/sw/00.png" alt="Dobby" class="brand-logo" id="brandLogo">
     <div class="brand-text">
       <h1>Dobby Emo</h1>
-      <p>AI 助手表情引擎 · 纯 JS 实时驱动 · 零框架</p>
+      <p>AI 助手表情层 · 可嵌入 · 零依赖</p>
     </div>
   </div>
   <div class="topbar-right">
@@ -26,11 +31,11 @@
 
 <main class="layout">
 
-  <!-- ===== 左列：主视觉 + 陈列墙 ===== -->
+  <!-- ===== 左列：主视觉 + 可行性 + 陈列墙 ===== -->
   <div class="left-col">
     <section class="hero-panel">
       <h2 class="hero-title">一颗会表达情绪的<br><em>Dobby</em></h2>
-      <p class="hero-sub">18 种状态表情 · 不再靠点卡片 —— 你的每个动作，它都在看</p>
+      <p class="hero-sub">可直接嵌入 AI 应用的表情层 · 纯前端 · 零依赖 —— 下面就是完整可运行的演示</p>
       <div class="hero-chips">
         <span class="chip">🖱️ 鼠标靠近 → 害羞</span>
         <span class="chip">💨 快速挥动 → 兴奋</span>
@@ -42,6 +47,38 @@
         <span class="chip">😴 静置 25 秒 → 睡着</span>
       </div>
       <i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i><i class="spark s4"></i><i class="spark s5"></i>
+    </section>
+
+    <!-- ===== 可行性：能力矩阵 ===== -->
+    <section class="feature-grid">
+      <h2>为什么可行</h2>
+      <div class="fgrid">
+        <div class="fcard"><b>零依赖</b><span>纯原生 JS + CSS，无框架无构建，引入两个文件即可运行</span></div>
+        <div class="fcard"><b>JSON 协议接入</b><span>AI 只需输出 emotionId + tips 两个字段，未知 ID 自动回落待机</span></div>
+        <div class="fcard"><b>素材管线化</b><span>表情图由图像模型按参考图批量生成，换形象只改提示词</span></div>
+        <div class="fcard"><b>双主题 × 双皮肤</b><span>明暗主题与黑白形象自由组合，支持系统动效偏好降级</span></div>
+        <div class="fcard"><b>移动端可用</b><span>触摸拖拽 / 点击庆祝 / 滚动反应，小屏自适应布局</span></div>
+        <div class="fcard"><b>全合成动效音效</b><span>粒子、彩带、音效零素材文件，运行时实时生成</span></div>
+      </div>
+    </section>
+
+    <!-- ===== 可行性：接入方式 ===== -->
+    <section class="code-card">
+      <h2>接入方式</h2>
+      <p class="card-desc">在你的页面里引入引擎，AI 每轮回复附带一段 JSON 即可驱动表情：</p>
+      <pre><code>&lt;div id="dobby-layer"&gt;&lt;/div&gt;
+&lt;script src="dobby.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  const dobby = new DobbyEmo(
+    document.getElementById('dobby-layer')
+  );
+
+  // AI 回复后下发情绪（可接 Function Calling / 结构化输出）
+  dobby.handleAIMessage(
+    '{"emotionId": "30", "tips": "正在思考用户问题…"}'
+  );
+&lt;/script&gt;</code></pre>
+      <p class="card-desc">错误兜底内置：未知 emotionId、JSON 解析失败自动回落待机并触发 onError。右侧「聊天演示」就是完整接法的实时示例。</p>
     </section>
 
     <!-- ===== 表情陈列墙 ===== -->
@@ -68,7 +105,6 @@
       <ul class="log" id="aiLog"></ul>
     </section>
 
-    <!-- 聊天演示卡片插在 AI 消息模拟之后 -->
     <section class="card">
       <h2>聊天演示</h2>
       <p class="card-desc">像真实聊天机器人一样：收到消息先思考（头顶光环），再带着表情开口回复</p>
@@ -118,10 +154,6 @@
 <footer class="footer">
   <p>Dobby Emo · 灵感致谢 <a href="https://github.com/sam70361/aora-bot" target="_blank" rel="noopener" style="color: var(--accent-2); text-decoration: none;">aora-bot</a> · 表情数据可运行时注册 / 导入导出 · 引擎与素材仅限个人学习使用</p>
 </footer>
-<!-- ===== Dobby 全屏漫游层 ===== -->
-<div id="dobby-layer" aria-hidden="true"></div>
-  <p>Dobby Emo · 灵感致谢 <a href="https://github.com/sam70361/aora-bot" target="_blank" rel="noopener" style="color: var(--accent-2); text-decoration: none;">aora-bot</a> · 表情数据可运行时注册 / 导入导出 · 引擎与素材仅限个人学习使用</p>
-</footer>
 
 <!-- ===== Dobby 全屏漫游层 ===== -->
 <div id="dobby-layer" aria-hidden="true"></div>
@@ -129,9 +161,9 @@
 <!-- ===== 通知 ===== -->
 <div id="toasts"></div>
 
-<script src="js/emotions.js?v=31"></script>
-<script src="js/eyes.js?v=31"></script>
-<script src="js/dobby.js?v=31"></script>
-<script src="js/main.js?v=31"></script>
+<script src="js/emotions.js?v=34"></script>
+<script src="js/eyes.js?v=34"></script>
+<script src="js/dobby.js?v=34"></script>
+<script src="js/main.js?v=34"></script>
 </body>
 </html>

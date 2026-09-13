@@ -103,6 +103,7 @@
       this.emotion = null;
       this.sticky = false;
       this.follow = false;               // 跟随模式（锚点缓慢追指针）
+      this._vs = 1;                      // 视口缩放（小屏整体缩小）
 
       this._bindDrag();
       this._onResize = () => this.setAnchor(this.anchor.x, this.anchor.y);
@@ -178,6 +179,9 @@
       return { x: this.anchor.x + this.pos.x, y: this.anchor.y + this.pos.y + 24 };
     }
 
+    /* 小屏缩放（围绕锚点中心整体缩小，faceCenter 不变） */
+    setViewportScale(k) { this._vs = k; }
+
     /* ---------------- 拖拽 / 点击 ---------------- */
     _bindDrag() {
       const root = this.root;
@@ -187,8 +191,11 @@
         down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
         this.dragging = true;
         this.vel.x = this.vel.y = 0;
-        this._grabDX = e.clientX - (this.anchor.x + this.pos.x);
-        this._grabDY = e.clientY - (this.anchor.y + this.pos.y);
+        // 记录抓手：把指针增量除以视口缩放，保证小屏下手指按哪儿跟哪儿
+        this._grabPX = e.clientX;
+        this._grabPY = e.clientY;
+        this._grabOX = this.pos.x;
+        this._grabOY = this.pos.y;
         root.setPointerCapture(e.pointerId);
         if (this.onUserActivity) this.onUserActivity("drag-start");
       });
@@ -196,8 +203,8 @@
       root.addEventListener("pointermove", (e) => {
         if (!this.dragging || !down) return;
         down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
-        this.dragTarget.x = e.clientX - this.anchor.x - this._grabDX;
-        this.dragTarget.y = e.clientY - this.anchor.y - this._grabDY;
+        this.dragTarget.x = this._grabOX + (e.clientX - this._grabPX) / this._vs;
+        this.dragTarget.y = this._grabOY + (e.clientY - this._grabPY) / this._vs;
       });
 
       const release = () => {
@@ -464,9 +471,9 @@
         this.ribbon.push({ x: c.x, y: c.y - 30, hue: (t * 420) % 360, age: 0 });
       }
 
-      /* 应用变换 */
+      /* 应用变换（vs：小屏整体缩放，围绕锚点中心） */
       this.root.style.transform =
-        `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0)`;
+        `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0) scale(${this._vs})`;
       this.bobEl.style.transform = `translateY(${bobY}px)`;
       const rot = sway + this.gaze.x * 4.5 + spinDeg;
       this.tiltEl.style.transform =

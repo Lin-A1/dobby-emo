@@ -142,7 +142,7 @@ body {
   transition: opacity .5s ease;
 }
 #dobby-layer.away { opacity: 0; }
-#dobby-layer .dobby { pointer-events: auto; cursor: grab; }
+#dobby-layer .dobby { pointer-events: auto; cursor: grab; touch-action: none; }
 #dobby-layer .dobby:active { cursor: grabbing; }
 
 /* ---- 角色 DOM（由 JS 创建） ---- */
@@ -306,6 +306,46 @@ select {
 .log li.ok  { border-left-color: var(--ok); }
 .log time { opacity: .55; margin-right: 6px; }
 
+/* ============ 可行性：能力矩阵 ============ */
+.feature-grid h2 { font-size: 18px; margin-bottom: 14px; }
+.fgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.fcard {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .25s, transform .2s;
+}
+.fcard:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--panel-border)); transform: translateY(-2px); }
+.fcard b { font-size: 14px; color: var(--accent-2); }
+.fcard span { font-size: 12.5px; color: var(--text-dim); line-height: 1.65; }
+
+/* ============ 可行性：接入代码 ============ */
+.code-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 18px;
+}
+.code-card h2 { font-size: 16px; margin-bottom: 6px; }
+.code-card pre {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.code-card code { font-family: inherit; }
+
 /* ============ 陈列墙 ============ */
 .wall-section { padding: 6px 0 0; }
 .wall-section h2 { font-size: 18px; margin-bottom: 16px; }
@@ -352,6 +392,47 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .brand-logo, .spark, .dobby-zzz span { animation: none !important; }
   html { scroll-behavior: auto; }
+}
+
+/* ============ 移动端适配 ============ */
+@media (max-width: 980px) {
+  .fgrid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+  .topbar { padding: 10px 14px; }
+  .brand-text p { display: none; }
+  .brand-logo { width: 38px; height: 38px; }
+  .status-chip { max-width: 100px; font-size: 11px; padding: 5px 10px; }
+  .topbar-right { gap: 7px; }
+  .btn { padding: 7px 11px; font-size: 12.5px; }
+
+  .layout { padding: 14px; gap: 14px; }
+  .hero-panel {
+    height: auto;
+    min-height: 0;
+    padding: 26px 22px 178px;   /* 底部留出角色的位置 */
+    gap: 12px;
+    justify-content: flex-start;
+  }
+  .hero-title { font-size: 30px; }
+  .hero-sub { font-size: 13px; line-height: 1.6; }
+  .chip { font-size: 11px; padding: 4px 10px; }
+
+  .fgrid { grid-template-columns: 1fr; gap: 10px; }
+  .fcard { padding: 13px 14px; }
+  .code-card pre { font-size: 11px; padding: 12px; }
+  .card { padding: 15px; }
+  .chat-log { height: 120px; }
+  textarea { height: 58px; }
+
+  .wall { grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 10px; }
+  .wall-item { padding: 10px 6px 9px; border-radius: 13px; }
+  .wall-item img { width: 60px; height: 60px; }
+  .wall-item .w-name { font-size: 12px; }
+  .wall-item .w-id { font-size: 9.5px; }
+  .wall-item .w-group { font-size: 9px; top: 6px; left: 7px; }
+
+  .footer { padding: 16px 14px; font-size: 11px; }
 }
 
 /* ============ 新增：toast / 羁绊 / 爱心 / 光点 ============ */
