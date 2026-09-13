@@ -65,10 +65,6 @@
    * DobbyEmo 实例
    * ============================================================ */
   class DobbyEmo {
-    static instances = new Set();
-    static _rafId = null;
-    static _lastT = 0;
-
     constructor(mount, opts = {}) {
       this.mount = mount;
       this.opts = Object.assign(
@@ -203,7 +199,7 @@
         this._grabPY = e.clientY;
         this._grabOX = this.pos.x;
         this._grabOY = this.pos.y;
-        root.setPointerCapture(e.pointerId);
+        try { root.setPointerCapture(e.pointerId); } catch (err) {}
         if (this.onUserActivity) this.onUserActivity("drag-start");
       });
 
@@ -587,6 +583,11 @@
       DobbyEmo._rafId = requestAnimationFrame(loop);
     }
   }
+
+  /* 类静态字段改为赋值式（class fields 语法会让旧手机浏览器整文件解析失败） */
+  DobbyEmo.instances = new Set();
+  DobbyEmo._rafId = null;
+  DobbyEmo._lastT = 0;
 
   /* ---------------- 导出 ---------------- */
   global.DobbyEmo = DobbyEmo;
