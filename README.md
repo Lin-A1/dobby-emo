@@ -1,13 +1,15 @@
 # Dobby Emo · 会表达情绪的小助手
 
-一套面向 AI 助手的**桌面宠物级表情引擎**：一只抱着电脑的 3D 小猫 Dobby 悬浮在页面上，18 种状态表情，眼神会追着你的鼠标走，情绪从你的每个动作里"长"出来——而不是靠点卡片换图。
+一套面向 AI 助手的**可嵌入表情层方案**：一只抱着电脑的 3D 小猫 Dobby 悬浮在页面上，18 种状态表情，眼神会追着你的鼠标走，情绪从你的每个动作里"长"出来——而不是靠点卡片换图。纯前端、零依赖、两个文件即可接入，移动端同样可用。
 
 <p align="center">
   <img src="docs/screenshots/dark.png" width="49%" alt="黑色形象">
-  <img src="docs/screenshots/light.png" width="49%" alt="白色形象">
+  <img src="docs/screenshots/light.png" width="49%" alt="白色形象（奶油香草）">
 </p>
 
 > 灵感致谢 [aora-bot](https://github.com/sam70361/aora-bot)（Emotion Ball 表情引擎），本项目在其架构思路上做了形象与交互的重新设计。
+
+**在线演示**：[https://lin-a1.github.io/dobby-emo/](https://lin-a1.github.io/dobby-emo/)
 
 ## ✨ 特性
 
@@ -36,11 +38,11 @@
 - 眨眼带回弹过冲、呼吸缩放、说话时身体小抖动
 - 共享 rAF 心跳，所有动画帧率无关
 
-**其他**
-- 🤖 AI 消息协议：`dobby.handleAIMessage('{"emotionId":"30","tips":"正在思考…"}')`
-- 💬 聊天演示面板：收到消息先思考（头顶光环），再带着表情开口回复
-- 🍪 羁绊好感系统：摸它/陪玩/喂食攒 XP，升级有庆祝彩带（localStorage 持久化）
-- 🔊 WebAudio 合成音效（零素材，可静音）
+**工程化**
+- 📱 移动端适配：触摸拖拽（`touch-action` + 缩放换算）、小屏角色自动缩放驻守、滚动渐进淡出
+- 🪶 素材全 WebP：两套皮肤总体积约 2.3MB（单张约 130KB），首图预加载 + 加载门控（未就绪前不显示半成品状态）
+- 🧩 兼容性：JS 语法控制在 ES2018 级别，CSS 提供 `color-mix` / `mask-image` / `inset` 回退
+- 🔊 WebAudio 合成音效（零素材文件，可静音）
 - 明暗双主题、`prefers-reduced-motion` 降级、响应式布局
 
 ## 🚀 运行
@@ -64,6 +66,8 @@ dobby.handleAIMessage('{"emotionId":"30","tips":"正在思考用户问题…"}')
 // 未知 ID / JSON 解析失败 → 自动回落待机，并触发 onError
 ```
 
+可以接在任意大模型的 Function Calling / 结构化输出后面；页面上的「聊天演示」是完整接法的实时示例。
+
 ## 🎨 表情素材再生成
 
 素材由图像编辑模型（参考图 + 逐表情提示词）批量生成，脚本在 `tools/`：
@@ -74,23 +78,27 @@ bash tools/gen-sw.sh        # 黑色皮肤全套
 bash tools/gen-sw-white2.sh # 奶油香草皮肤全套
 ```
 
-生成结果为带半透明边缘的原图（`assets/*/raw/`），配合浏览器端 alpha 腐蚀去毛边后即为成品。
+流水线：模型出图（透明底 PNG，存至 `assets/*/raw/`）→ 浏览器端 alpha 腐蚀去毛边 → canvas 编码转 WebP → 替换 `assets/sw|sw-white/`。换形象只需换参考图与提示词。
 
 ## 📁 目录结构
 
 ```
-├── index.html            # 入口页
-├── css/style.css         # 主题 / 动效 / 特效层
+├── index.html            # 入口页（演示 + 可行性说明 + 接入示例）
+├── compare.html          # 形象候选对比页（设计过程工具）
+├── css/style.css         # 主题 / 动效 / 特效层 / 移动端适配
 ├── js/
 │   ├── emotions.js       # 表情注册表（ID 分段 + 素材路径 + 特效标记）
 │   ├── dobby.js          # 引擎核心（弹簧物理 / 心跳 / 协议 / 粒子）
 │   ├── main.js           # 行为反应层 + 羁绊 + 聊天演示 + 皮肤
 │   └── eyes.js           # 矢量眼引擎（实验功能，默认未启用）
-├── assets/sw,sw-white/   # 黑 / 白两套表情素材
+├── assets/sw,sw-white/   # 黑 / 白两套表情素材（WebP）
 ├── tools/                # 素材批量生成脚本
-└── docs/                 # 截图
+└── docs/screenshots/     # README 截图
 ```
 
-## 📄 许可
+## 📄 开源许可
 
-引擎与代码仅供学习交流；Dobby 形象素材由 AI 生成，请勿用于商业用途。
+- **代码**（`js/`、`css/`、`index.html` 等）：以 [MIT License](LICENSE) 开源，可自由使用、修改、分发——也欢迎把你的 AI 接进来玩。
+- **形象素材**（`assets/` 目录下的 Dobby 图像）：由 AI 生成，与本仓库代码一同提供用于学习演示，**请勿用于商业用途**；商业使用请先联系作者。
+
+除此之外，本项目的诞生受益于 [aora-bot](https://github.com/sam70361/aora-bot) 的思路启发与开源图像模型，一并致谢。
