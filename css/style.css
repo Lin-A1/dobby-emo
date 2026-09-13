@@ -96,22 +96,28 @@ body {
 }
 
 /* ============ 主视觉区 ============ */
+/* 左文案 / 右舞台：角色有独立站位区，文字永远不会被压住 */
 .hero-panel {
   position: relative;
-  height: clamp(420px, 62vh, 560px);
+  height: clamp(430px, 62vh, 560px);
   border-radius: 24px;
   background: var(--stage-bg);
   border: 1px solid var(--panel-border);
   overflow: hidden;
-  padding: 48px 44px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  padding: 36px 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 38%);
+  align-items: center;
   gap: 18px;
 }
+.hero-copy {
+  display: flex; flex-direction: column; gap: 16px;
+  min-width: 0;
+  position: relative; z-index: 2;
+}
 .hero-title {
-  font-size: clamp(34px, 4.6vw, 56px);
-  line-height: 1.15;
+  font-size: clamp(30px, 3.5vw, 46px);
+  line-height: 1.18;
   letter-spacing: 1px;
   text-wrap: balance;
 }
@@ -122,8 +128,8 @@ body {
   background-clip: text;
   color: transparent;
 }
-.hero-sub { color: var(--text-dim); font-size: 15px; }
-.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; max-width: 460px; margin-top: 6px; }
+.hero-sub { color: var(--text-dim); font-size: 14px; line-height: 1.65; max-width: 34em; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .chip {
   font-size: 12px;
   color: var(--text-dim);
@@ -133,6 +139,8 @@ body {
   padding: 5px 12px;
   backdrop-filter: blur(6px);
 }
+/* 角色站位区：JS 读它的矩形来钉锚点，空着也没关系 */
+.hero-stage { position: relative; width: 100%; height: 100%; min-height: 300px; }
 
 /* ============ Dobby 漫游层 ============ */
 #dobby-layer {
@@ -166,16 +174,26 @@ body {
   will-change: transform;
   transform-origin: 50% 58%;
 }
-.dobby-face img {
+/* 一帧脸 = 底图 + 眼睛补丁 + 眼球精灵，作为整体交叉淡入淡出、统一投影 */
+.dobby-frame {
   position: absolute; top: 0; right: 0; bottom: 0; left: 0;
-  width: 100%; height: 100%;
-  object-fit: contain;
   opacity: 0;
   transition: opacity .22s ease;
+  will-change: transform, opacity;
   pointer-events: none;
   filter: drop-shadow(0 18px 30px var(--shadow));
 }
-.dobby-face img.show { opacity: 1; }
+.dobby-frame.show { opacity: 1; }
+.dobby-frame img {
+  position: absolute;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.dobby-frame img.f-base { top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+/* 补丁 / 精灵由 JS 按图像百分比定位；精灵再用 transform 做眼神位移 */
+.dobby-frame img.f-patch,
+.dobby-frame img.f-sprite { display: block; }
+.dobby-frame img.f-sprite { will-change: transform; }
 .dobby-shadow {
   position: absolute; left: 50%; top: 50%;
   width: 210px; height: 40px;
@@ -185,11 +203,11 @@ body {
   will-change: transform, opacity;
   pointer-events: none;
 }
+/* 台词气泡：位置由 JS 贴着「头顶」写视口坐标（不在角色缩放坐标系内） */
 .dobby-tips {
-  position: absolute; left: 50%; top: 50%;
-  transform: translate(-50%, 0);
-  margin-top: -215px;
-  max-width: 260px;
+  position: absolute; left: 0; top: 0;
+  transform: translate(-50%, -100%);
+  max-width: min(340px, 78vw);
   background: var(--panel);
   border: 1px solid var(--panel-border);
   backdrop-filter: blur(10px);
@@ -203,6 +221,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  z-index: 6;
 }
 .dobby-tips::after {
   content: "";
@@ -214,7 +233,7 @@ body {
   border-bottom: 1px solid var(--panel-border);
   transform: rotate(45deg);
 }
-.dobby-tips.show { opacity: 1; transform: translate(-50%, -6px); }
+.dobby-tips.show { opacity: 1; transform: translate(-50%, calc(-100% - 6px)); }
 .dobby-fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
 
 /* 睡觉时的氛围月亮 */
@@ -280,7 +299,18 @@ textarea:focus { border-color: var(--accent); }
 .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
 .btn:active { transform: translateY(0) scale(.97); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-.btn.ghost { background: transparent; }
+.btn.ghost { background: transparent; padding: 8px 12px; }
+/* 开关按钮：小圆点表示状态（亮 = 开），文字标签在小屏隐藏 */
+.btn .dot {
+  display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent-2);
+  margin-right: 7px; vertical-align: 1px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: background .2s, box-shadow .2s;
+}
+.btn.off { color: var(--text-dim); }
+.btn.off .dot { background: var(--text-dim); box-shadow: none; }
 
 .switch-label { font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
@@ -404,21 +434,27 @@ select {
   .topbar { padding: 10px 14px; }
   .brand-text p { display: none; }
   .brand-logo { width: 38px; height: 38px; }
-  .status-chip { max-width: 100px; font-size: 11px; padding: 5px 10px; }
+  .status-chip { max-width: 108px; font-size: 11px; padding: 5px 10px; }
   .topbar-right { gap: 7px; }
   .btn { padding: 7px 11px; font-size: 12.5px; }
+  .btn.ghost .lbl { display: none; }        /* 小屏只留状态点 */
+  .btn.ghost { padding: 8px 10px; }
 
   .layout { padding: 14px; gap: 14px; }
   .hero-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
     height: auto;
     min-height: 0;
-    padding: 26px 22px 200px;   /* 底部留出角色的位置 */
+    padding: 24px 20px 8px;
     gap: 12px;
-    justify-content: flex-start;
   }
-  .hero-title { font-size: 30px; }
+  .hero-title { font-size: 28px; }
   .hero-sub { font-size: 13px; line-height: 1.6; }
   .chip { font-size: 11px; padding: 4px 10px; }
+  .hero-stage { height: 230px; min-height: 230px; }
 
   .fgrid { grid-template-columns: 1fr; gap: 10px; }
   .fcard { padding: 13px 14px; }
@@ -475,16 +511,26 @@ select {
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:disabled:hover { transform: none; border-color: var(--panel-border); }
 
+/* 爱心：两个圆 + 旋转 45° 的方块拼出来，不依赖字体里的 ♥ 字形 */
 .f-heart {
   position: absolute; z-index: 71; pointer-events: none;
-  font-size: 18px; color: #ff6b81;
-  text-shadow: 0 2px 10px rgba(255, 107, 129, .55);
+  width: 15px; height: 15px;
+  background: #ff6b81;
+  transform: rotate(45deg);
+  filter: drop-shadow(0 2px 9px rgba(255, 107, 129, .5));
   animation: heart-rise 1.4s ease-out forwards;
 }
+.f-heart::before, .f-heart::after {
+  content: ""; position: absolute;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: inherit;
+}
+.f-heart::before { left: -7.5px; top: 0; }
+.f-heart::after { top: -7.5px; left: 0; }
 @keyframes heart-rise {
-  0%   { transform: translate(0, 0) scale(.5); opacity: 0; }
+  0%   { transform: translate(0, 0) rotate(45deg) scale(.5); opacity: 0; }
   15%  { opacity: 1; }
-  100% { transform: translate(var(--dx, 0px), -90px) scale(1.25); opacity: 0; }
+  100% { transform: translate(var(--dx, 0px), -90px) rotate(45deg) scale(1.25); opacity: 0; }
 }
 
 .spark {
@@ -503,8 +549,7 @@ select {
   50% { transform: translateY(-22px); opacity: .8; }
 }
 
-/* ============ 矢量眼模式 ============ */
-.dobby-vector { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: none; }
+/* ============ 矢量眼模式（历史遗留，未启用） ============ */
 .dobby-face.vector-mode > img { visibility: hidden; }
 .dobby-face.vector-mode .dobby-vector { display: block; }
 .dobby-face .dobby-vector img { opacity: 1; visibility: visible; width: 100%; height: 100%; object-fit: contain; }
@@ -517,7 +562,7 @@ select {
   55%  { transform: scale(1.012); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
-.dobby-face img.pop.show { animation: emote-pop .34s cubic-bezier(.3, .9, .35, 1); }
+.dobby-frame.pop.show { animation: emote-pop .34s cubic-bezier(.3, .9, .35, 1); }
 
 /* ============ 常驻特效层 ============ */
 .dobby-aura { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; z-index: 5; }
@@ -526,8 +571,8 @@ select {
 .dobby[data-fx="ring"] .dobby-aura::before,
 .dobby[data-fx="ring"] .dobby-aura::after {
   content: "";
-  position: absolute; left: 50%; top: -23%;
-  width: 34%; aspect-ratio: 1;
+  position: absolute; left: 50%; top: -15%;
+  width: 32%; aspect-ratio: 1;
   transform: translateX(-50%);
   border-radius: 50%;
   animation: halo-bob 3.2s ease-in-out infinite;
@@ -542,8 +587,8 @@ select {
   animation: halo-bob 3.2s ease-in-out infinite, halo-spin 1.4s linear infinite;
 }
 @keyframes halo-bob {
-  0%, 100% { top: -23%; }
-  50% { top: -27%; }
+  0%, 100% { top: -15%; }
+  50% { top: -19%; }
 }
 @keyframes halo-spin {
   from { transform: translateX(-50%) rotate(0deg); }
@@ -572,22 +617,42 @@ select {
 @keyframes dot-bounce { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-5px); opacity: 1; } }
 @keyframes bubble-sway { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
 
-/* 花痴/成功：持续飘浮粒子 */
+/* 花痴/成功：持续飘浮粒子（心 / 星，同样是 CSS 画的） */
 .fx-p {
   position: absolute; bottom: 52%;
-  font-size: 15px; pointer-events: none;
+  pointer-events: none;
   animation: fx-rise 1.6s ease-out forwards;
 }
-.dobby[data-fx="hearts"] .fx-p { color: #ff6b81; text-shadow: 0 2px 8px rgba(255, 107, 129, .6); }
-.dobby[data-fx="sparkle"] .fx-p { color: #ffd76a; text-shadow: 0 2px 8px rgba(255, 215, 106, .7); font-size: 13px; }
+.fx-p.fx-heart {
+  width: 11px; height: 11px; background: #ff6b81;
+  filter: drop-shadow(0 2px 8px rgba(255, 107, 129, .6));
+  animation-name: fx-rise-rot;
+}
+.fx-p.fx-heart::before, .fx-p.fx-heart::after {
+  content: ""; position: absolute;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: inherit;
+}
+.fx-p.fx-heart::before { left: -5.5px; top: 0; }
+.fx-p.fx-heart::after { top: -5.5px; left: 0; }
+.fx-p.fx-star {
+  width: 9px; height: 9px; background: #ffd76a;
+  box-shadow: 0 0 8px rgba(255, 215, 106, .85);
+  animation-name: fx-rise-rot;
+}
 @keyframes fx-rise {
   0%   { transform: translateY(10px) scale(.5); opacity: 0; }
   15%  { opacity: 1; }
   100% { transform: translateY(-80px) scale(1.2) rotate(18deg); opacity: 0; }
 }
+@keyframes fx-rise-rot {
+  0%   { transform: translateY(10px) rotate(45deg) scale(.5); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateY(-80px) rotate(63deg) scale(1.2); opacity: 0; }
+}
 
 /* 出错：故障抖动 + 红蓝残影 */
-.dobby[data-fx="glitch"] .dobby-face img.show {
+.dobby[data-fx="glitch"] .dobby-frame.show {
   animation: glitch-shake .22s steps(2, jump-none) infinite;
   filter: drop-shadow(0 18px 30px var(--shadow))
           drop-shadow(3px 0 0 rgba(255, 60, 60, .55))

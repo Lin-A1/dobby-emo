@@ -81,25 +81,32 @@
     spin: false,   // 不旋转（庆祝只放彩带）
   });
 
-  /* 布局稳定后把锚点钉到 hero 右侧空位（并随窗口变化保持） */
+  /* 布局稳定后把锚点钉到 hero 的「舞台区」（并随窗口变化保持） */
+  const stage = document.getElementById("heroStage");
   const placeAnchor = () => {
-    const r = hero.getBoundingClientRect();
+    const r = stage.getBoundingClientRect();
+    const size = dobby.opts.size;
+    const w = r.width || 320;
+    const h = r.height || size;
     const mobile = innerWidth < 700;
-    if (mobile) {
-      // 小屏：角色缩小并驻守 hero 右下角（hero 预留了底部空间）
-      dobby.setViewportScale(0.62);
-      dobby.setAnchor(r.right - 92, r.bottom - 84);
-    } else if (innerWidth < 1100) {
-      dobby.setViewportScale(0.82);
-      dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.38);
-    } else {
-      dobby.setViewportScale(1);
-      dobby.setAnchor(r.left + r.width * 0.72, r.top + r.height * 0.35);
-    }
+    // 小屏同时受宽高约束，并在头顶留出气泡的位置
+    const fit = mobile ? Math.min(w / 340, (h - 44) / size) : w / 340;
+    const k = Math.max(0.45, Math.min(1, fit));
+    const boxH = size * k;
+    dobby.setViewportScale(k);
+    dobby.setAnchor(r.left + w * 0.5, mobile ? r.top + h - boxH * 0.5 - 2 : r.top + h * 0.52);
   };
   requestAnimationFrame(placeAnchor);
   addEventListener("load", placeAnchor);
   addEventListener("resize", placeAnchor);
+  /* 滚动时把锚点粘回舞台（rAF 合并，避免每帧多次读取布局） */
+  let anchorPending = false;
+  const anchorOnScroll = () => {
+    if (anchorPending) return;
+    anchorPending = true;
+    requestAnimationFrame(() => { anchorPending = false; placeAnchor(); });
+  };
+  addEventListener("scroll", anchorOnScroll, { passive: true });
 
   /* 滚出首屏时渐进淡出（避免挡住下方内容），回来再出现 */
   const updatePresence = () => {
@@ -131,8 +138,7 @@
     const c = dobby.faceCenter();
     for (let i = 0; i < n; i++) {
       const h = document.createElement("span");
-      h.className = "f-heart";
-      h.textContent = "♥";
+      h.className = "f-heart";                 // 形状用 CSS 画（避免依赖 emoji 字体）
       h.style.left = c.x - 10 + (Math.random() - 0.5) * 90 + "px";
       h.style.top = c.y - 20 + (Math.random() - 0.5) * 40 + "px";
       h.style.setProperty("--dx", (Math.random() - 0.5) * 60 + "px");
@@ -216,14 +222,23 @@
 
   function react(id, opts = {}) {
     const ttl = opts.ttl || 1600;
-    if (dobby.dragging) return;
-    if (dobby.emotion && dobby.emotion.id === "01") return;
-    if (performance.now() - lastUserSet < 2500) return;
+    if (dobby.dragging && !opts.force) return;
+    if (!opts.force && dobby.emotion && dobby.emotion.id === "01") return;
+    if (!opts.force && performance.now() - lastUserSet < 2500) return;
     clearTimeout(ambientTimer);
     dobby.setEmotion(id, { tips: opts.tips, sticky: false, intensity: opts.intensity });
     ambientTimer = setTimeout(() => {
       dobby.setEmotion(userState.id, { sticky: true });
     }, ttl);
+  }
+
+  /* 从睡眠里被弄醒（鼠标移动 / 手指按下都算） */
+  function wake(reason) {
+    if (!sleeping || userState.id === "01") return false;
+    sleeping = false;
+    react("11", { tips: reason, ttl: 1500, force: true });
+    Bond.add(2);
+    return true;
   }
 
   /* ============================================================
@@ -245,12 +260,7 @@
     lastPointer = now;
 
     /* 唤醒 */
-    if (sleeping && userState.id !== "01") {
-      sleeping = false;
-      dobby.setEmotion(userState.id, { tips: "唔…你回来啦", sticky: true });
-      Bond.add(2);
-      return;
-    }
+    if (sleeping && userState.id !== "01") { wake("唔…你回来啦"); return; }
 
     if (lastPX != null) {
       const dt = Math.max(now - lastPT, 1);
@@ -258,15 +268,15 @@
       const c = dobby.faceCenter();
       const d = Math.hypot(e.clientX - c.x, e.clientY - c.y);
 
-      if (speed > 1.3 && cooldown("whip", 4000)) {
+      if (speed > 0.9 && cooldown("whip", 3500)) {
         react(pick(["13", "11"]), { tips: pick(WHIP_TIPS), ttl: 1300 });
         Bond.add(2);
-      } else if (d < 90 && cooldown("pet", 5000)) {
+      } else if (d < 100 && cooldown("pet", 4000)) {
         react("12", { tips: "♥", ttl: 1300 });
         Sound.squeak();
         floatHearts(3);
         Bond.add(6);
-      } else if (d < 190 && cooldown("close", 7000)) {
+      } else if (d < 210 && cooldown("close", 6000)) {
         react("18", { tips: pick(PET_TIPS), ttl: 1700 });
         Bond.add(2);
       }
@@ -274,9 +284,28 @@
     lastPX = e.clientX; lastPY = e.clientY; lastPT = now;
   }, { passive: true });
 
+  /* ---------------- 按住不动 = 抚摸（触屏也能玩） ---------------- */
+  let holdTimer = null;
+  const stopHold = () => { clearTimeout(holdTimer); holdTimer = null; };
+  dobby.root.addEventListener("pointerdown", () => {
+    stopHold();
+    wake("诶，你摸我");
+    holdTimer = setTimeout(() => {
+      if (dobby.dragging && Math.hypot(dobby.pos.x, dobby.pos.y) < 8 && !sleeping) {
+        react("12", { tips: "好舒服…", ttl: 1600, force: true });
+        Sound.squeak();
+        floatHearts(4);
+        Bond.add(5);
+      }
+    }, 650);
+  });
+  addEventListener("pointerup", stopHold);
+  addEventListener("pointercancel", stopHold);
+
   /* ---------------- 点击空白：吓一跳 ---------------- */
   addEventListener("pointerdown", (e) => {
     if (e.target.closest("#dobby-layer .dobby, button, a, input, textarea, select, .wall-item")) return;
+    if (wake("嗯？怎么了")) return;
     dobby.hop(0.8);
     if (Math.random() < 0.35 && cooldown("scare", 9000)) {
       react("14", { tips: "哇！", ttl: 1100 });
@@ -413,7 +442,7 @@
 
   /* ---------------- 开场打招呼 ---------------- */
   setTimeout(() => {
-    react("11", { tips: "嗨！我是 Dobby 👋 靠近我、拖着我玩～", ttl: 3600 });
+    react("11", { tips: "嗨，我是 Dobby —— 靠近我、拖着我来玩", ttl: 3600 });
   }, 700);
 
   /* ---------------- 喂食 ---------------- */
@@ -515,12 +544,13 @@
   aiInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
   });
-  aiInput.addEventListener("input", () => {
+  function onTyping() {
     if (cooldown("type", 1800)) {
       react("30", { tips: pick(TYPE_TIPS), ttl: 1500 });
       Bond.add(1);
     }
-  });
+  }
+  aiInput.addEventListener("input", onTyping);
   document.querySelectorAll("[data-sample]").forEach((btn) => {
     btn.addEventListener("click", () => {
       aiInput.value = btn.dataset.sample;
@@ -544,7 +574,7 @@
     { re: /再见|拜拜|晚安/i, emo: "16", reply: "拜拜…记得回来找我玩" },
     { re: /困|睡觉|好累/i, emo: "01", reply: "那我先睡一会儿…zZ" },
     { re: /哈哈|好笑|笑死/i, emo: "11", reply: "哈哈哈对吧！" },
-    { re: /完成|做好|搞定|成功/i, emo: "33", reply: "太棒了！庆祝一下 🎉" },
+    { re: /完成|做好|搞定|成功/i, emo: "33", reply: "太棒了！庆祝一下" },
     { re: /在吗|在不在/i, emo: "20", reply: "在呢在呢，一直都在～" },
   ];
   const CHAT_FALLBACK = [
@@ -604,6 +634,7 @@
   chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") chatSend();
   });
+  chatInput.addEventListener("input", onTyping);   // 打字 → 好奇盯着
   // 开场白
   setTimeout(() => {
     chatBubble("嗨，我是 Dobby！跟我聊聊天吧～", "bot");
@@ -666,12 +697,18 @@
   function applySkin(s, silent) {
     skin = s;
     localStorage.setItem("dobby-skin", s);
-    // 注册表内就地替换图片路径
+    // 注册表内就地替换图片路径（底图 + 可动眼层）
     DobbyEmotions.list().forEach((def) => {
       def.img = `${SKINS[s]}/${def.id}.webp`;
       const im = new Image(); im.src = def.img;   // 预载
+      if (def.eyeLayer) {
+        def.eyeLayer.patch = `${SKINS[s]}/${def.id}-patch.webp`;
+        def.eyeLayer.sprite = `${SKINS[s]}/${def.id}-eyes.webp`;
+        const p = new Image(); p.src = def.eyeLayer.patch;
+        const q = new Image(); q.src = def.eyeLayer.sprite;
+      }
     });
-    skinToggle.textContent = s === "dark" ? "🤍" : "🖤";
+    skinToggle.classList.toggle("off", s !== "dark");   // 点：奶白形象，灭：经典黑
     skinToggle.title = s === "dark" ? "切换到白色形象" : "切换到黑色形象";
     renderWall();
     if (dobby.emotion) {
@@ -685,18 +722,25 @@
 
   /* ---------------- 主题 & 音效开关 ---------------- */
   const themeToggle = document.getElementById("themeToggle");
+  const syncTheme = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    themeToggle.classList.toggle("off", !dark);
+    themeToggle.title = dark ? "切换到浅色主题" : "切换到深色主题";
+  };
   themeToggle.addEventListener("click", () => {
     const html = document.documentElement;
-    const dark = html.dataset.theme === "dark";
-    html.dataset.theme = dark ? "light" : "dark";
-    themeToggle.textContent = dark ? "☀️" : "🌙";
+    html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+    syncTheme();
   });
+  syncTheme();
 
   const soundToggle = document.getElementById("soundToggle");
-  if (Sound.muted) soundToggle.textContent = "🔇";
-  soundToggle.addEventListener("click", () => {
-    soundToggle.textContent = Sound.toggle() ? "🔇" : "🔊";
-  });
+  const syncSound = () => {
+    soundToggle.classList.toggle("off", Sound.muted);
+    soundToggle.title = Sound.muted ? "音效已关闭，点击开启" : "音效已开启，点击关闭";
+  };
+  soundToggle.addEventListener("click", () => { Sound.toggle(); syncSound(); });
+  syncSound();
 
   /* ---------------- 暴露给控制台调试 ---------------- */
   window.dobby = dobby;

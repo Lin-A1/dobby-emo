@@ -24,7 +24,7 @@
       bob: typeof def.bob === "number" ? def.bob : 1,   // 漂浮幅度系数
       noBlink: !!def.noBlink,
       effect: def.effect || "none",                     // 常驻光环特效
-      eyes: def.eyes || null,                           // 矢量眼配置（emoball 式实时眼睛）
+      eyeLayer: def.eyeLayer || null,                   // 可动眼层（补丁 + 眼睛精灵）
     };
   }
 
@@ -124,20 +124,23 @@
       this.tiltEl = el("div", "dobby-tilt", this.bobEl);
       this.faceEl = el("div", "dobby-face", this.tiltEl);
 
-      this.imgA = el("img", "show", this.faceEl);
-      this.imgB = el("img", "", this.faceEl);
-      this.imgA.draggable = this.imgB.draggable = false;
-      this._front = this.imgA;
+      /* 两张「帧」交叉淡入淡出，每帧 = 底图 + 眼睛补丁 + 眼睛精灵，
+         后两层让眼球可以真的跟着指针转（只有部分表情带眼层） */
+      this.frameA = this._buildFrame("show");
+      this.frameB = this._buildFrame("");
+      this._front = this.frameA;
 
       /* 加载门控：首图就绪前隐藏整个角色（避免光环/气泡先飘出来） */
       root.classList.add("loading");
       const reveal = () => root.classList.remove("loading");
-      this.imgA.addEventListener("load", reveal);
-      this.imgB.addEventListener("load", reveal);
-      if (this.imgA.complete && this.imgA.naturalWidth > 0) reveal();
+      this.frameA.base.addEventListener("load", reveal);
+      this.frameB.base.addEventListener("load", reveal);
+      if (this.frameA.base.complete && this.frameA.base.naturalWidth > 0) reveal();
 
       this.shadowEl = el("div", "dobby-shadow", root);
-      this.tipsEl = el("div", "dobby-tips", root);
+      /* 台词气泡挂在图层上（不在缩放坐标系里），小屏也保持正常字号与头距 */
+      this.tipsEl = el("div", "dobby-tips", this.mount);
+      this._tipsShown = false;
       this.zzzEl = el("div", "dobby-zzz", root);
       this.zzzEl.innerHTML = "<span>z</span><span>z</span><span>z</span>";
       this.auraEl = el("div", "dobby-aura", root);   // 常驻特效层（光环/爱心/蒸汽等）
@@ -147,19 +150,17 @@
 
       this.fx = el("canvas", "dobby-fx", this.mount);
       this._fxSize = { w: 0, h: 0 };
+    }
 
-      /* 矢量眼模式：空白脸底图 + SVG 实时眼睛 */
-      this.vecWrap = el("div", "dobby-vector", this.faceEl);
-      const vimg = el("img", "", this.vecWrap);
-      vimg.src = this.opts.bodyImg || "assets/emotes/blank.png";
-      vimg.draggable = false;
-      this.vecSvg = el("div", "dobby-svg", this.vecWrap);
-      this.eyes = null;
-      try {
-        if (typeof global.DobbyEyes === "function") {
-          this.eyes = new global.DobbyEyes(this.vecSvg, this.opts.size, this.opts.eyeGeo);
-        }
-      } catch (e) { this.eyes = null; }
+    /* 一帧脸：base 铺满，patch / sprite 按眼层百分比定位 */
+    _buildFrame(cls) {
+      const f = el("div", ("dobby-frame " + cls).trim(), this.faceEl);
+      f.base = el("img", "f-base", f);
+      f.patch = el("img", "f-patch", f);
+      f.sprite = el("img", "f-sprite", f);
+      f.base.draggable = f.patch.draggable = f.sprite.draggable = false;
+      f.patch.style.display = f.sprite.style.display = "none";
+      return f;
     }
 
     _applyAnchor() {
@@ -189,39 +190,45 @@
     _bindDrag() {
       const root = this.root;
       let down = null;
+      const self = this;
 
-      root.addEventListener("pointerdown", (e) => {
+      root.addEventListener("pointerdown", function (e) {
         down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: 0 };
-        this.dragging = true;
-        this.vel.x = this.vel.y = 0;
+        self.dragging = true;
+        self.vel.x = self.vel.y = 0;
         // 记录抓手：把指针增量除以视口缩放，保证小屏下手指按哪儿跟哪儿
-        this._grabPX = e.clientX;
-        this._grabPY = e.clientY;
-        this._grabOX = this.pos.x;
-        this._grabOY = this.pos.y;
+        self._grabPX = e.clientX;
+        self._grabPY = e.clientY;
+        self._grabOX = self.pos.x;
+        self._grabOY = self.pos.y;
         try { root.setPointerCapture(e.pointerId); } catch (err) {}
-        if (this.onUserActivity) this.onUserActivity("drag-start");
+        if (self.onUserActivity) self.onUserActivity("drag-start");
       });
 
-      root.addEventListener("pointermove", (e) => {
-        if (!this.dragging || !down) return;
+      const onMove = function (e) {
+        if (!self.dragging || !down) return;
         down.moved = Math.max(down.moved, Math.hypot(e.clientX - down.x, e.clientY - down.y));
-        this.dragTarget.x = this._grabOX + (e.clientX - this._grabPX) / this._vs;
-        this.dragTarget.y = this._grabOY + (e.clientY - this._grabPY) / this._vs;
-      });
-
+        self.dragTarget.x = self._grabOX + (e.clientX - self._grabPX) / self._vs;
+        self.dragTarget.y = self._grabOY + (e.clientY - self._grabPY) / self._vs;
+      };
       const release = () => {
-        if (!this.dragging) return;
-        this.dragging = false;
+        if (!self.dragging) return;
+        self.dragging = false;
         if (down && down.moved < 6 && performance.now() - down.t < 400) {
-          this.celebrate();          // 点击 → 庆祝
-        } else if (this.opts.spin !== false && Math.hypot(this.vel.x, this.vel.y) > 900) {
-          this.spin.t = 0;           // 快速甩出 → 顺势旋转（可关）
+          self.celebrate();          // 点击 → 庆祝
+        } else if (self.opts.spin !== false && Math.hypot(self.vel.x, self.vel.y) > 900) {
+          self.spin.t = 0;           // 快速甩出 → 顺势旋转（可关）
         }
         down = null;
       };
+
+      root.addEventListener("pointermove", onMove);
       root.addEventListener("pointerup", release);
       root.addEventListener("pointercancel", release);
+      /* 兜底：指针捕获失败（部分老浏览器 / 触屏）时，事件可能落到别的元素上 */
+      addEventListener("pointermove", onMove, { passive: true });
+      addEventListener("pointerup", release);
+      addEventListener("pointercancel", release);
     }
 
     /* ---------------- 表情切换 ---------------- */
@@ -235,15 +242,21 @@
       this.root.classList.toggle("sleeping", def.id === "01");
       this._renderAura(def);
 
-      /* 矢量眼 / 素材图 两种模式 */
-      const vector = !!(def.eyes && this.eyes);
-      this.faceEl.classList.toggle("vector-mode", vector);
-      if (vector) this.eyes.setEmotion(def.eyes);
-
       if (changed) {
-        // 变形过渡：旧图淡出，新图弹性弹入（带回弹过冲）
-        const next = this._front === this.imgA ? this.imgB : this.imgA;
-        next.src = def.img;
+        // 变形过渡：旧帧淡出，新帧弹性弹入（带回弹过冲）
+        const next = this._front === this.frameA ? this.frameB : this.frameA;
+        const lay = def.eyeLayer;
+        next.base.src = def.img;
+        if (lay && lay.patch && lay.sprite) {
+          next.patch.src = lay.patch;
+          next.sprite.src = lay.sprite;
+          this._placeLayer(next.patch, lay);
+          this._placeLayer(next.sprite, lay);
+          next.patch.style.display = next.sprite.style.display = "";
+        } else {
+          next.patch.style.display = next.sprite.style.display = "none";
+          next.sprite.style.transform = "";
+        }
         this._front.classList.remove("show");
         next.classList.add("show");
         next.classList.remove("pop");
@@ -258,6 +271,14 @@
       if (meta.tips != null) this._showTips(meta.tips);
       if (this.onChange) this.onChange(def, meta);
       return true;
+    }
+
+    /* 眼层定位：百分比 = 图像坐标系（底图 object-fit: contain 且与容器同为正方形） */
+    _placeLayer(node, lay) {
+      node.style.left = lay.x + "%";
+      node.style.top = lay.y + "%";
+      node.style.width = lay.w + "%";
+      node.style.height = lay.h + "%";
     }
 
     /* ---------------- 常驻特效层 ---------------- */
@@ -275,11 +296,10 @@
             : "";
     }
 
-    /* 持续飘浮粒子（爱心 / 星光） */
+    /* 持续飘浮粒子（爱心 / 星光）—— 形用 CSS 画，不依赖 emoji 字体 */
     _spawnFxParticle() {
       if (this.auraEl.querySelectorAll(".fx-p").length >= 8) return;
-      const p = el("span", "fx-p", this.auraEl);
-      p.textContent = this._fxType === "hearts" ? "♥" : "✦";
+      const p = el("span", "fx-p " + (this._fxType === "hearts" ? "fx-heart" : "fx-star"), this.auraEl);
       p.style.left = 26 + Math.random() * 48 + "%";
       p.style.animationDuration = 1.2 + Math.random() * 0.9 + "s";
       setTimeout(() => p.remove(), 2300);
@@ -294,8 +314,25 @@
     _showTips(text) {
       this.tipsEl.textContent = text;
       this.tipsEl.classList.add("show");
+      this._tipsShown = true;
+      this._tipsW = null;                 // 文本变了，宽度重新量一次
+      this._placeTips();
       clearTimeout(this._tipsTimer);
-      this._tipsTimer = setTimeout(() => this.tipsEl.classList.remove("show"), 3200);
+      this._tipsTimer = setTimeout(() => {
+        this.tipsEl.classList.remove("show");
+        this._tipsShown = false;
+      }, 3200);
+    }
+
+    /* 气泡跟着头顶走（视口坐标：图层是 fixed 全屏层） */
+    _placeTips() {
+      const c = this.faceCenter();
+      const headTop = this.anchor.y + this.pos.y - 130 * this._vs + this._bobY * this._vs;
+      if (this._tipsW == null) this._tipsW = (this.tipsEl.offsetWidth || 120) / 2 + 8;
+      const half = this._tipsW;
+      const x = clamp(c.x, Math.min(half, innerWidth - half), Math.max(half, innerWidth - half));
+      this.tipsEl.style.left = x + "px";
+      this.tipsEl.style.top = headTop - 8 + "px";
     }
 
     /* 说话（不切换表情，只出气泡） */
@@ -304,7 +341,20 @@
     /* 皮肤切换后刷新当前表情图（就地换图 + 轻微挤压反馈） */
     refreshSkin() {
       if (!this.emotion) return;
-      this._front.src = this.emotion.img;
+      const def = this.emotion;
+      const lay = def.eyeLayer;
+      [this.frameA, this.frameB].forEach((f) => {
+        f.base.src = def.img;
+        if (lay && lay.patch && lay.sprite) {
+          f.patch.src = lay.patch;
+          f.sprite.src = lay.sprite;
+          this._placeLayer(f.patch, lay);
+          this._placeLayer(f.sprite, lay);
+          f.patch.style.display = f.sprite.style.display = "";
+        } else {
+          f.patch.style.display = f.sprite.style.display = "none";
+        }
+      });
       this.squash.v = -2.5;
     }
 
@@ -421,6 +471,7 @@
         bobAmp *= 0.5;
       }
       const bobY = Math.sin(t * bobSpeed) * bobAmp;
+      this._bobY = bobY;
       const sway = Math.sin(t * 1.05) * (sleeping ? 0.8 : 2);
       const breath = 1 + Math.sin(t * 1.35) * 0.01;   // 呼吸
 
@@ -444,10 +495,13 @@
         }
       }
 
-      /* 矢量眼模式：脸部不整体眨眼，交给眼引擎（瞳孔追随 + gooey 变形） */
-      if (this.faceEl.classList.contains("vector-mode") && this.eyes) {
-        blinkScale = 1;
-        this.eyes.tick(dt, t, this.gaze);
+      /* 眼层：眼球跟着视线方向在眼眶里移动（只有带眼层的表情有） */
+      const lay = def.eyeLayer;
+      if (lay) {
+        const mx = lay.max == null ? 8 : lay.max;
+        const my = lay.maxY == null ? mx * 0.72 : lay.maxY;
+        this._front.sprite.style.transform =
+          `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
       }
 
       /* 表情切换挤压弹簧 */
@@ -480,15 +534,19 @@
       this.bobEl.style.transform = `translateY(${bobY}px)`;
       const rot = sway + this.gaze.x * 4.5 + spinDeg;
       this.tiltEl.style.transform =
-        `translate(${this.gaze.x * 6}px, ${this.gaze.y * 5}px) rotate(${rot}deg)`;
+        `translate(${this.gaze.x * 5}px, ${this.gaze.y * 4}px) rotate(${rot}deg)`;
       const sx = (1 + (1 - sq.s) * 0.55) * breath;
+      /* 头和身体只做小幅倾斜，眼神交给眼层，避免整张脸平移 */
       this.faceEl.style.transform =
-        `translate(${this.gaze.x * 9}px, ${this.gaze.y * 7}px) scale(${sx}, ${sq.s * blinkScale})`;
+        `translate(${this.gaze.x * 2.5}px, ${this.gaze.y * 2}px) scale(${sx}, ${sq.s * blinkScale})`;
 
       /* 影子随位移缩放变淡 */
       const lift = clamp(Math.hypot(this.pos.x, this.pos.y) / 320, 0, 0.45);
       this.shadowEl.style.transform = `scaleX(${1 - lift})`;
       this.shadowEl.style.opacity = 0.85 - lift;
+
+      /* 气泡跟随头顶 */
+      if (this._tipsShown) this._placeTips();
 
       /* 彩带纸屑 & 拖尾 */
       this._tickFx(dt);

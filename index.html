@@ -10,7 +10,7 @@
 <link rel="icon" type="image/webp" href="assets/sw/00.webp">
 <link rel="preload" as="image" href="assets/sw/00.webp">
 <title>Dobby Emo · 会表达情绪的小助手</title>
-<link rel="stylesheet" href="css/style.css?v=37">
+<link rel="stylesheet" href="css/style.css?v=40">
 </head>
 <body>
 
@@ -24,9 +24,9 @@
   </div>
   <div class="topbar-right">
     <span class="status-chip" id="statusChip">ID -- / --</span>
-    <button class="btn ghost" id="skinToggle" title="切换黑白形象">🤍</button>
-    <button class="btn ghost" id="soundToggle" title="音效开关">🔊</button>
-    <button class="btn ghost" id="themeToggle" title="切换主题">🌙</button>
+    <button class="btn ghost" id="skinToggle" title="切换黑白形象"><i class="dot"></i><span class="lbl">形象</span></button>
+    <button class="btn ghost" id="soundToggle" title="音效开关"><i class="dot"></i><span class="lbl">音效</span></button>
+    <button class="btn ghost" id="themeToggle" title="切换明暗主题"><i class="dot"></i><span class="lbl">主题</span></button>
   </div>
 </header>
 
@@ -35,18 +35,21 @@
   <!-- ===== 左列：主视觉 + 可行性 + 陈列墙 ===== -->
   <div class="left-col">
     <section class="hero-panel">
-      <h2 class="hero-title">一颗会表达情绪的<br><em>Dobby</em></h2>
-      <p class="hero-sub">可直接嵌入 AI 应用的表情层 · 纯前端 · 零依赖 —— 下面就是完整可运行的演示</p>
-      <div class="hero-chips">
-        <span class="chip">🖱️ 鼠标靠近 → 害羞</span>
-        <span class="chip">💨 快速挥动 → 兴奋</span>
-        <span class="chip">👆 点空白处 → 吓一跳</span>
-        <span class="chip">📜 快速滚动 → 转晕</span>
-        <span class="chip">⌨️ 打字 → 好奇盯着</span>
-        <span class="chip">🖐️ 按住可拖拽 · 点击庆祝</span>
-        <span class="chip">🍪 喂食攒好感</span>
-        <span class="chip">😴 静置 25 秒 → 睡着</span>
+      <div class="hero-copy">
+        <h2 class="hero-title">一颗会表达情绪的<br><em>Dobby</em></h2>
+        <p class="hero-sub">可直接嵌入 AI 应用的表情层 · 纯前端 · 零依赖 —— 下面就是完整可运行的演示</p>
+        <div class="hero-chips">
+          <span class="chip">鼠标靠近 → 害羞</span>
+          <span class="chip">快速挥动 → 兴奋</span>
+          <span class="chip">点空白处 → 吓一跳</span>
+          <span class="chip">快速滚动 → 转晕</span>
+          <span class="chip">打字 → 好奇盯着</span>
+          <span class="chip">按住可拖拽 · 点击庆祝</span>
+          <span class="chip">喂食攒好感</span>
+          <span class="chip">静置 25 秒 → 睡着</span>
+        </div>
       </div>
+      <div class="hero-stage" id="heroStage" aria-hidden="true"></div>
       <i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i><i class="spark s4"></i><i class="spark s5"></i>
     </section>
 
@@ -144,7 +147,7 @@
       </div>
       <div class="bond-bar"><div class="bond-fill" id="bondFill"></div></div>
       <div class="row">
-        <button class="btn" id="feedBtn">🍪 喂食</button>
+        <button class="btn" id="feedBtn">喂食</button>
       </div>
       <p class="card-desc" id="bondHint">摸摸它、陪它玩、喂饼干可以提升好感，升级有庆祝彩带哦</p>
     </section>
@@ -162,9 +165,8 @@
 <!-- ===== 通知 ===== -->
 <div id="toasts"></div>
 
-<script src="js/emotions.js?v=37"></script>
-<script src="js/eyes.js?v=37"></script>
-<script src="js/dobby.js?v=37"></script>
-<script src="js/main.js?v=37"></script>
+<script src="js/emotions.js?v=40"></script>
+<script src="js/dobby.js?v=40"></script>
+<script src="js/main.js?v=40"></script>
 </body>
 </html>
