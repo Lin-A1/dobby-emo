@@ -567,32 +567,47 @@ select {
 /* ============ 常驻特效层 ============ */
 .dobby-aura { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; z-index: 5; }
 
-/* 思考/搜索：悬浮头顶的光环（halo） */
-.dobby[data-fx="ring"] .dobby-aura::before,
-.dobby[data-fx="ring"] .dobby-aura::after {
-  content: "";
-  position: absolute; left: 50%; top: -15%;
-  width: 32%; aspect-ratio: 1;
-  transform: translateX(-50%);
+/* 思考/搜索：头顶悬浮的倾斜光环（在角色层之下，耳朵自然压住环的下缘） */
+.dobby-halo {
+  position: absolute; left: 50%; top: -14%;
+  width: 29%; height: 29%;
+  margin-left: -14.5%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+.dobby[data-fx="ring"] .dobby-halo { opacity: 1; }
+.dobby-halo i, .dobby-halo b {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
   border-radius: 50%;
-  animation: halo-bob 3.2s ease-in-out infinite;
 }
-.dobby[data-fx="ring"] .dobby-aura::before {
-  border: 2.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+/* 环体：透视压扁成椭圆 + 光晕 */
+.dobby-halo i {
+  border: 2.5px solid color-mix(in srgb, var(--accent) 62%, transparent);
+  background: radial-gradient(ellipse at center,
+              color-mix(in srgb, var(--accent) 18%, transparent) 42%, transparent 72%);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 50%, transparent),
+              inset 0 0 14px color-mix(in srgb, var(--accent) 32%, transparent);
+  -webkit-transform: perspective(320px) translateY(0) rotateX(73deg);
+  transform: perspective(320px) translateY(0) rotateX(73deg);
+  animation: halo-bob 3.6s ease-in-out infinite;
 }
-.dobby[data-fx="ring"] .dobby-aura::after {
-  border: 3.5px solid transparent;
+/* 追光：一段亮弧沿椭圆跑 */
+.dobby-halo b {
+  border: 3px solid transparent;
   border-top-color: var(--accent-2);
   filter: drop-shadow(0 0 7px var(--accent));
-  animation: halo-bob 3.2s ease-in-out infinite, halo-spin 1.4s linear infinite;
+  -webkit-transform: perspective(320px) rotateX(73deg) rotateZ(0deg);
+  transform: perspective(320px) rotateX(73deg) rotateZ(0deg);
+  animation: halo-spin 1.8s linear infinite;
 }
 @keyframes halo-bob {
-  0%, 100% { top: -15%; }
-  50% { top: -19%; }
+  0%, 100% { -webkit-transform: perspective(320px) translateY(0) rotateX(73deg); transform: perspective(320px) translateY(0) rotateX(73deg); }
+  50% { -webkit-transform: perspective(320px) translateY(-6px) rotateX(73deg); transform: perspective(320px) translateY(-6px) rotateX(73deg); }
 }
 @keyframes halo-spin {
-  from { transform: translateX(-50%) rotate(0deg); }
-  to   { transform: translateX(-50%) rotate(360deg); }
+  from { -webkit-transform: perspective(320px) rotateX(73deg) rotateZ(0deg); transform: perspective(320px) rotateX(73deg) rotateZ(0deg); }
+  to   { -webkit-transform: perspective(320px) rotateX(73deg) rotateZ(360deg); transform: perspective(320px) rotateX(73deg) rotateZ(360deg); }
 }
 
 /* 加载中：思考气泡（三个跳动圆点） */

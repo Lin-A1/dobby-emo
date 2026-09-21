@@ -83,8 +83,10 @@
 
   /* 布局稳定后把锚点钉到 hero 的「舞台区」（并随窗口变化保持） */
   const stage = document.getElementById("heroStage");
+  let stageRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   const placeAnchor = () => {
     const r = stage.getBoundingClientRect();
+    stageRect = r;
     const size = dobby.opts.size;
     const w = r.width || 320;
     const h = r.height || size;
@@ -96,6 +98,15 @@
     dobby.setViewportScale(k);
     dobby.setAnchor(r.left + w * 0.5, mobile ? r.top + h - boxH * 0.5 - 2 : r.top + h * 0.52);
   };
+
+  /* 只有指针进到「舞台附近」才做反应：鼠标在页面别处（比如右侧面板）操作时别打扰 */
+  function nearStage(x, y, pad) {
+    const p = pad == null ? 80 : pad;
+    if (!stageRect.width) return true;
+    return x > stageRect.left - p && x < stageRect.right + p &&
+           y > stageRect.top - p && y < stageRect.bottom + p;
+  }
+
   requestAnimationFrame(placeAnchor);
   addEventListener("load", placeAnchor);
   addEventListener("resize", placeAnchor);
@@ -206,6 +217,7 @@
    * ============================================================ */
   const userState = { id: "00" };
   let lastUserSet = -1e9;
+  let lastReactAt = -1e9;
   let ambientTimer = null;
 
   function setUser(id, meta = {}) {
@@ -225,6 +237,9 @@
     if (dobby.dragging && !opts.force) return;
     if (!opts.force && dobby.emotion && dobby.emotion.id === "01") return;
     if (!opts.force && performance.now() - lastUserSet < 2500) return;
+    // 全局防抖：一次动作只给一个反应，别连环切换（force 用于抚摸 / 唤醒这类明确操作）
+    if (!opts.force && performance.now() - lastReactAt < 1600) return;
+    lastReactAt = performance.now();
     clearTimeout(ambientTimer);
     dobby.setEmotion(id, { tips: opts.tips, sticky: false, intensity: opts.intensity });
     ambientTimer = setTimeout(() => {
@@ -267,16 +282,17 @@
       const speed = Math.hypot(e.clientX - lastPX, e.clientY - lastPY) / dt;
       const c = dobby.faceCenter();
       const d = Math.hypot(e.clientX - c.x, e.clientY - c.y);
+      const near = nearStage(e.clientX, e.clientY);
 
-      if (speed > 0.9 && cooldown("whip", 3500)) {
+      if (near && speed > 1.9 && cooldown("whip", 7000)) {
         react(pick(["13", "11"]), { tips: pick(WHIP_TIPS), ttl: 1300 });
         Bond.add(2);
-      } else if (d < 100 && cooldown("pet", 4000)) {
+      } else if (near && d < 84 && cooldown("pet", 9000)) {
         react("12", { tips: "♥", ttl: 1300 });
         Sound.squeak();
         floatHearts(3);
         Bond.add(6);
-      } else if (d < 210 && cooldown("close", 6000)) {
+      } else if (near && d < 168 && cooldown("close", 14000)) {
         react("18", { tips: pick(PET_TIPS), ttl: 1700 });
         Bond.add(2);
       }
@@ -291,13 +307,13 @@
     stopHold();
     wake("诶，你摸我");
     holdTimer = setTimeout(() => {
-      if (dobby.dragging && Math.hypot(dobby.pos.x, dobby.pos.y) < 8 && !sleeping) {
+      if (dobby.dragging && Math.hypot(dobby.pos.x, dobby.pos.y) < 8 && !sleeping && cooldown("hold", 8000)) {
         react("12", { tips: "好舒服…", ttl: 1600, force: true });
         Sound.squeak();
         floatHearts(4);
         Bond.add(5);
       }
-    }, 650);
+    }, 1100);
   });
   addEventListener("pointerup", stopHold);
   addEventListener("pointercancel", stopHold);
@@ -390,13 +406,13 @@
     setTimeout(() => {
       const now = performance.now();
       if (!sleeping && !dobby.dragging &&
-          now - lastPointer > 6000 && now - lastUserSet > 5000 &&
+          now - lastPointer > 9000 && now - lastUserSet > 8000 &&
           dobby.emotion && dobby.emotion.id === userState.id &&
           userState.id !== "01") {
         react(pick(["20", "31", "14"]), { ttl: 1400 });
       }
       idleActs();
-    }, 9000 + Math.random() * 8000);
+    }, 15000 + Math.random() * 12000);
   })();
 
   const CHATTER = [
@@ -409,7 +425,7 @@
     setTimeout(() => {
       const now = performance.now();
       if (!sleeping && !dobby.dragging && document.visibilityState === "visible" &&
-          now - lastPointer > 5000 && dobby.emotion && dobby.emotion.id === userState.id) {
+          now - lastPointer > 9000 && dobby.emotion && dobby.emotion.id === userState.id) {
         const hour = new Date().getHours();
         let pool = CHATTER;
         if (hour >= 23 || hour < 6) pool = CHATTER_NIGHT;
@@ -417,7 +433,7 @@
         dobby.say(pick(pool));
       }
       chatter();
-    }, 16000 + Math.random() * 10000);
+    }, 26000 + Math.random() * 16000);
   })();
 
   /* ============================================================

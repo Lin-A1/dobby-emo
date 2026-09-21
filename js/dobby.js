@@ -120,6 +120,10 @@
       root.style.width = root.style.height = this.opts.size + "px";
       this._applyAnchor();
 
+      /* 头顶光环（思考 / 搜索）：放在角色之后面，让耳朵自然压住环的下缘 */
+      this.haloEl = el("div", "dobby-halo", root);
+      this.haloEl.innerHTML = "<i></i><b></b>";
+
       this.bobEl = el("div", "dobby-bob", root);
       this.tiltEl = el("div", "dobby-tilt", this.bobEl);
       this.faceEl = el("div", "dobby-face", this.tiltEl);
