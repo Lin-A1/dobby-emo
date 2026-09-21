@@ -68,7 +68,7 @@
     constructor(mount, opts = {}) {
       this.mount = mount;
       this.opts = Object.assign(
-        { size: 320, gaze: true, blink: true, autosleep: false, autosleepDelay: 20000 },
+        { size: 320, gaze: true, gazeRange: 460, blink: true, autosleep: false, autosleepDelay: 20000 },
         opts
       );
       this.onChange = null;   // (def, meta) => {}
@@ -119,10 +119,6 @@
       this.root = root;
       root.style.width = root.style.height = this.opts.size + "px";
       this._applyAnchor();
-
-      /* 头顶光环（思考 / 搜索）：放在角色之后面，让耳朵自然压住环的下缘 */
-      this.haloEl = el("div", "dobby-halo", root);
-      this.haloEl.innerHTML = "<i></i><b></b>";
 
       this.bobEl = el("div", "dobby-bob", root);
       this.tiltEl = el("div", "dobby-tilt", this.bobEl);
@@ -293,11 +289,15 @@
       this.root.dataset.fx = fx;
       this.auraEl.className = "dobby-aura fx-" + fx;
       this.auraEl.innerHTML =
-        fx === "dots"
-          ? '<div class="dots-bubble"><span></span><span></span><span></span></div>'
-          : fx === "steam"
-            ? '<i style="--sx:-16px;--d:0s"></i><i style="--sx:2px;--d:.55s"></i><i style="--sx:18px;--d:1.1s"></i>'
-            : "";
+        fx === "think"
+          ? '<div class="dobby-think"><i></i><i></i><i></i></div>'
+          : fx === "orbit"
+            ? '<div class="dobby-orbit"><i></i><i></i><i></i></div>'
+            : fx === "bar"
+              ? '<div class="dobby-bar"><i></i></div>'
+              : fx === "steam"
+                ? '<i style="--sx:-16px;--d:0s"></i><i style="--sx:2px;--d:.55s"></i><i style="--sx:18px;--d:1.1s"></i>'
+                : "";
     }
 
     /* 持续飘浮粒子（爱心 / 星光）—— 形用 CSS 画，不依赖 emoji 字体 */
@@ -450,20 +450,31 @@
         if (Math.hypot(this.pos.x, this.pos.y) > 40) this._landChecked = false;
       }
 
-      /* 视线：跟随指针；指针静止久了就自己四处张望（双正弦漫游） */
+      /* 视线：只有指针进入「它的活动范围」才看过去；离得远 / 静止久了就自己张望
+         另外留一个死区：指针就在脸中间时不要抖动 */
       let tx = 0, ty = 0;
       if (this.opts.gaze && !this.dragging) {
-        if (performance.now() - pointer.t < 2500) {
-          const c = this.faceCenter();
-          tx = clamp((pointer.x - c.x) / (innerWidth * 0.35), -1, 1);
-          ty = clamp((pointer.y - c.y) / (innerHeight * 0.35), -1, 1);
+        const c = this.faceCenter();
+        const d = Math.hypot(pointer.x - c.x, pointer.y - c.y);
+        const active = performance.now() - pointer.t < 4000;
+        if (active && d < this.opts.gazeRange) {
+          if (d > 34) {                                  // 死区：贴脸时不追
+            // 以「头部尺度」归一化：指针到头部侧缘（约 220px）时眼球到边
+            tx = clamp((pointer.x - c.x) / 220, -1, 1);
+            ty = clamp((pointer.y - c.y) / 180, -1, 1);
+          } else {
+            tx = this.gaze.x * 0.6;                      // 死区内缓慢回正
+            ty = this.gaze.y * 0.6;
+          }
         } else {
-          tx = Math.sin(t * 0.37) * 0.5 + Math.sin(t * 0.13) * 0.28;
-          ty = Math.cos(t * 0.31) * 0.38;
+          // 没在看它 / 指针离开：缓慢地自己东张西望
+          const w = t * 0.22;
+          tx = Math.sin(w) * 0.42 + Math.sin(t * 0.09) * 0.2;
+          ty = Math.cos(t * 0.17) * 0.26;
         }
       }
-      this.gaze.x += (tx - this.gaze.x) * lerpK(dt, 4.2);
-      this.gaze.y += (ty - this.gaze.y) * lerpK(dt, 4.2);
+      this.gaze.x += (tx - this.gaze.x) * lerpK(dt, 2.4);
+      this.gaze.y += (ty - this.gaze.y) * lerpK(dt, 2.4);
 
       /* 待机漂浮（睡觉放缓；说话时快速小抖动） */
       const sleeping = def.id === "01";
@@ -502,8 +513,8 @@
       /* 眼层：眼球跟着视线方向在眼眶里移动（只有带眼层的表情有） */
       const lay = def.eyeLayer;
       if (lay) {
-        const mx = lay.max == null ? 8 : lay.max;
-        const my = lay.maxY == null ? mx * 0.72 : lay.maxY;
+        const mx = lay.max == null ? 6.5 : lay.max;
+        const my = lay.maxY == null ? mx * 0.7 : lay.maxY;
         this._front.sprite.style.transform =
           `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
       }
@@ -536,13 +547,13 @@
       this.root.style.transform =
         `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0) scale(${this._vs})`;
       this.bobEl.style.transform = `translateY(${bobY}px)`;
-      const rot = sway + this.gaze.x * 4.5 + spinDeg;
+      const rot = sway + this.gaze.x * 2.4 + spinDeg;
       this.tiltEl.style.transform =
-        `translate(${this.gaze.x * 5}px, ${this.gaze.y * 4}px) rotate(${rot}deg)`;
+        `translate(${this.gaze.x * 3}px, ${this.gaze.y * 2.4}px) rotate(${rot}deg)`;
       const sx = (1 + (1 - sq.s) * 0.55) * breath;
       /* 头和身体只做小幅倾斜，眼神交给眼层，避免整张脸平移 */
       this.faceEl.style.transform =
-        `translate(${this.gaze.x * 2.5}px, ${this.gaze.y * 2}px) scale(${sx}, ${sq.s * blinkScale})`;
+        `translate(${this.gaze.x * 1.6}px, ${this.gaze.y * 1.4}px) scale(${sx}, ${sq.s * blinkScale})`;
 
       /* 影子随位移缩放变淡 */
       const lift = clamp(Math.hypot(this.pos.x, this.pos.y) / 320, 0, 0.45);

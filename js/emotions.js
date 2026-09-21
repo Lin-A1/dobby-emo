@@ -2,8 +2,9 @@
  * ID 分段约定（参考 aora-bot）:
  *   00-09 生命周期  10-29 情绪  30-49 智能体状态  50+ 自定义
  * 空位保留，已有 ID 永不变更。
- * effect:   常驻光环特效（ring 旋转光环 | dots 思考气泡 | hearts 飘爱心
- *           | sparkle 环绕星光 | glitch 故障抖动 | steam 冒蒸汽 | sleep 月亮）
+ * effect:   常驻状态特效（think 思考气泡 | orbit 环绕探照点 | bar 进度光带
+ *           | hearts 飘爱心 | sparkle 环绕星光 | glitch 故障抖动
+ *           | steam 冒蒸汽 | sleep 月亮）
  * img:      软件部固定形象烘焙表情（assets/sw/*.webp）
  * eyeLayer: 可动眼层 —— patch 是「抹掉烘焙眼睛」的脸部补丁，sprite 是眼球精灵，
  *           x/y/w/h 为图像坐标百分比，max 为 300px 尺寸下眼球最大位移（px）。
@@ -34,11 +35,11 @@ window.DOBBY_EMOTION_PRESET = [
     eyeLayer: { patch: "assets/sw/20-patch.webp", sprite: "assets/sw/20-eyes.webp",
                 x: 29.187, y: 39.952, w: 41.069, h: 24.003, max: 9, maxY: 6.5 } },
 
-  { id: "30", name: "思考中",  en: "Thinking",  group: "agent", img: "assets/sw/30.webp", effect: "ring",
+  { id: "30", name: "思考中",  en: "Thinking",  group: "agent", img: "assets/sw/30.webp", effect: "think",
     eyeLayer: { patch: "assets/sw/30-patch.webp", sprite: "assets/sw/30-eyes.webp",
                 x: 28.868, y: 38.038, w: 38.198, h: 23.525, max: 8.5, maxY: 6 } },
-  { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "ring" },
+  { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "orbit" },
   { id: "32", name: "出错了",  en: "Error",     group: "agent", img: "assets/sw/32.webp", effect: "glitch" },
   { id: "33", name: "完成",    en: "Success",   group: "agent", img: "assets/sw/33.webp", effect: "sparkle" },
-  { id: "34", name: "处理中",  en: "Loading",   group: "agent", img: "assets/sw/34.webp", effect: "dots" },
+  { id: "34", name: "处理中",  en: "Loading",   group: "agent", img: "assets/sw/34.webp", effect: "bar" },
 ];
