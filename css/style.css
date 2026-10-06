@@ -195,18 +195,16 @@ body {
 .dobby-frame img.f-sprite { display: block; }
 .dobby-frame img.f-sprite { will-change: transform; }
 
-/* ---- 眼球组：精灵 + 球面明暗 + 高光 ----
-   烘焙素材的眼睛是哑光的（见 assets/sw/00-eyes.webp）：整片均匀的深色，
-   没有球面过渡也没有接触阴影，于是眼睛读成一块平贴的黑——整只猫因此
-   有贴纸感。这里把眼球做成三层，让它回到「陷在脸里的玻璃球」：
+/* ---- 眼球组：精灵 + 一点球面明暗 + 一颗收得住的高光 ----
+   参考 emoball：那边的眼睛干脆就是纯色 `#1A1A1A` 的实心形状，没有高光也
+   没有明暗，情绪全靠形状变化。我们这里是 3D 渲染形象，眼睛完全不加东西会
+   读成一块平贴的黑（贴纸感），但加多了又会「油」——所以只留两样，而且都压到
+   很轻：
 
-   1. .f-sprite  眼形本身 + 一圈紧贴的接触阴影（把眼球「按」进脸里）
-   2. .f-shade   用精灵自己的 alpha 当遮罩，在眼形内部画：
-                 上缘眼窝阴影（眉骨投下来的暗）+ 下缘反光（球的反弹光）
-                 —— 有这两条，眼面才开始转起来
-   3. .f-glint   镜面高光：小焦核心 + 一圈淡淡光晕（左上一粒）
-                 + 右下角一粒更小的冷调副光（反射光）
-   位置全部由 JS 按 emotions.js 的锚点写入（宽 = w%，高按框宽高比，保证正圆）。
+   1. .f-shade  用眼精灵自己的 alpha 当遮罩，在眼形内部画极轻的上缘阴影与
+                下缘反光，只为不让眼球是一块死平色
+   2. .f-glint  一颗小焦核心高光（偏左上）。没有副光、没有大光晕、没有描边
+   位置由 JS 按 emotions.js 的锚点写入（宽 = w%，高按框宽高比，保证正圆）。
    素材已自带高光的表情（hi:1，如 14 号惊讶）不再叠加。 */
 .dobby-frame .f-eye {
   position: absolute;
@@ -216,9 +214,9 @@ body {
 .dobby-frame .f-eye img.f-sprite {
   position: absolute; top: 0; right: 0; bottom: 0; left: 0;
   width: 100%; height: 100%;
-  /* 接触阴影：要又紧又淡、略向下偏，读作「眼球陷在眼窝里」。
-     半径一大就变成一圈「眼线」，比不加还糟，所以宁小勿大 */
-  filter: drop-shadow(0 0.8px 1.8px rgba(6, 4, 12, .34));
+  /* 接触阴影只留一丝：给眼球一点点落地的重量感。
+     再大就变成一圈「眼线」，那是另一个方向的失真，所以宁小勿大 */
+  filter: drop-shadow(0 0.5px 1px rgba(6, 4, 12, .22));
 }
 /* 明暗层：遮罩要用精灵自己的 alpha，并往里缩 ~2%——
    精灵 alpha 比实际眼形大一圈（抽取时做过膨胀+羽化），照着 100% 铺会把
@@ -234,40 +232,28 @@ body {
   -webkit-mask-position: 50% 50%; mask-position: 50% 50%;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   background:
-    /* 上缘：眉骨投在眼球上部的投影，只压最上面一小段 */
+    /* 上缘：很轻的一道眉骨投影 */
     linear-gradient(180deg,
-      rgba(5, 3, 11, .55) 0%, rgba(5, 3, 11, .20) 20%,
-      rgba(5, 3, 11, .05) 36%, rgba(5, 3, 11, 0) 50%),
-    /* 下缘：贴着下缘的一弧环境反弹光，这是「球」的关键——用量很轻 */
-    radial-gradient(130% 96% at 50% 126%,
-      rgba(208, 224, 255, .46) 0%, rgba(208, 224, 255, .18) 40%,
-      rgba(208, 224, 255, 0) 66%);
+      rgba(5, 3, 11, .28) 0%, rgba(5, 3, 11, .10) 18%,
+      rgba(5, 3, 11, 0) 42%),
+    /* 下缘：极淡的环境反光，只为止住「死平色」 */
+    radial-gradient(125% 92% at 50% 122%,
+      rgba(206, 222, 255, .24) 0%, rgba(206, 222, 255, .08) 38%,
+      rgba(206, 222, 255, 0) 64%);
 }
 @supports ((mask-image: url("a")) or (-webkit-mask-image: url("a"))) {
   .dobby-frame .f-shade { display: block; }
 }
 .dobby-frame .f-glint { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
-/* 主光：小焦核心 + 一圈光晕。核心要小要亮，大了就变贴纸 */
+/* 高光：一颗小焦核心，边缘收干净——不拖大光晕。
+   核心一小粒就够，把眼面糊白一半立刻变贴纸 */
 .dobby-frame .g-dot {
   position: absolute;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  background:
-    radial-gradient(circle at 50% 47%,
-      rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, .94) 13%,
-      rgba(255, 255, 255, .46) 34%, rgba(255, 255, 255, .12) 56%,
-      rgba(255, 255, 255, 0) 74%),
-    radial-gradient(circle at 50% 50%,
-      rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 88%);
-}
-/* 副光：右下角一粒冷调反射光，很小、很淡，只负责提示球面弧度 */
-.dobby-frame .g-kick {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle at 50% 50%,
-    rgba(206, 224, 255, .58) 0%, rgba(206, 224, 255, .22) 32%,
-    rgba(206, 224, 255, 0) 72%);
+  background: radial-gradient(circle at 50% 48%,
+    rgba(255, 255, 255, .98) 0%, rgba(255, 255, 255, .92) 20%,
+    rgba(255, 255, 255, .40) 46%, rgba(255, 255, 255, 0) 76%);
 }
 .dobby-shadow {
   position: absolute; left: 50%; top: 50%;
@@ -586,22 +572,23 @@ select {
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:disabled:hover { transform: none; border-color: var(--panel-border); }
 
-/* 爱心：两个圆 + 旋转 45° 的方块拼出来，不依赖字体里的 ♥ 字形 */
+/* 爱心：两个圆 + 旋转 45° 的方块拼出来，不依赖字体里的 ♥ 字形。
+   用渐变而不是平涂、阴影收轻收小 —— 平涂 + 大阴影就是「贴纸」的来源 */
 .f-heart {
   position: absolute; z-index: 71; pointer-events: none;
-  width: 15px; height: 15px;
-  background: #ff6b81;
+  width: 12px; height: 12px;
+  background: linear-gradient(135deg, #ff9db0, #ff6b81);
   transform: rotate(45deg);
-  filter: drop-shadow(0 2px 9px rgba(255, 107, 129, .5));
+  filter: drop-shadow(0 1px 5px rgba(255, 107, 129, .34));
   animation: heart-rise 1.4s ease-out forwards;
 }
 .f-heart::before, .f-heart::after {
   content: ""; position: absolute;
-  width: 15px; height: 15px; border-radius: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
   background: inherit;
 }
-.f-heart::before { left: -7.5px; top: 0; }
-.f-heart::after { top: -7.5px; left: 0; }
+.f-heart::before { left: -6px; top: 0; }
+.f-heart::after { top: -6px; left: 0; }
 @keyframes heart-rise {
   0%   { transform: translate(0, 0) rotate(45deg) scale(.5); opacity: 0; }
   15%  { opacity: 1; }
@@ -719,20 +706,21 @@ select {
   animation: fx-rise 1.6s ease-out forwards;
 }
 .fx-p.fx-heart {
-  width: 11px; height: 11px; background: #ff6b81;
-  filter: drop-shadow(0 2px 8px rgba(255, 107, 129, .6));
+  width: 9px; height: 9px;
+  background: linear-gradient(135deg, #ff9db0, #ff6b81);
+  filter: drop-shadow(0 1px 4px rgba(255, 107, 129, .34));
   animation-name: fx-rise-rot;
 }
 .fx-p.fx-heart::before, .fx-p.fx-heart::after {
   content: ""; position: absolute;
-  width: 11px; height: 11px; border-radius: 50%;
+  width: 9px; height: 9px; border-radius: 50%;
   background: inherit;
 }
-.fx-p.fx-heart::before { left: -5.5px; top: 0; }
-.fx-p.fx-heart::after { top: -5.5px; left: 0; }
+.fx-p.fx-heart::before { left: -4.5px; top: 0; }
+.fx-p.fx-heart::after { top: -4.5px; left: 0; }
 .fx-p.fx-star {
-  width: 9px; height: 9px; background: #ffd76a;
-  box-shadow: 0 0 8px rgba(255, 215, 106, .85);
+  width: 7px; height: 7px; background: #ffd76a;
+  box-shadow: 0 0 6px rgba(255, 215, 106, .7);
   animation-name: fx-rise-rot;
 }
 @keyframes fx-rise {

@@ -94,8 +94,10 @@
       this.blink = 0;                    // 0→1→0 眨眼相位
       this._blinkTimer = 2 + Math.random() * 3;
       this.spin = { t: 1, dur: 0.9 };    // t<1 表示旋转中
-      this.particles = [];               // 彩带纸屑
-      this.ribbon = [];                  // 旋转彩带拖尾
+      this.particles = [];               // 庆祝粒子（飘带 / 小星）
+      this.ribbon = [];                  // 旋转彩带拖尾（跟随模式关闭后备用）
+      this.rings = [];                   // 庆祝起手的扩散光环
+      this._ringColor = "#c9b8ff";
       this.emotion = null;
       this.sticky = false;
       this.follow = false;               // 跟随模式（锚点缓慢追指针）
@@ -295,10 +297,11 @@
     }
 
     /* 高光层：在眼球框内按 lay.glint 的锚点补光（框本身由眼层的定位负责）。
-       每条 glint = { x, y, w, kx, ky, kw, hi }，全部相对精灵框：
+       每条 glint = { x, y, w, hi }，全部相对精灵框：
          x/y/w     主光点：中心位置（%）与点宽（%）
-         kx/ky/kw  副光点：右下角那粒冷调反射光，kw=0 不画
          hi:1      素材已自带高光（如 14 号惊讶），整只眼不再叠加，避免双高光
+       （脚本还会测出右下副光 kx/ky/kw，当前不用——参考 emoball 的极简眼睛，
+         多一颗副光眼睛就显「油」）
        精灵框是扁的：CSS 里 width:% 按容器宽解析、height:% 按容器高解析，
        故要让点保持正圆，高度百分比 = 宽度百分比 × (框宽/框高)。 */
     _placeGlint(node, lay) {
@@ -317,8 +320,7 @@
       };
       g.forEach((e) => {
         if (e.hi) return;                      // 素材自带高光，不叠加
-        add("g-dot", e.x, e.y, e.w);
-        if (e.kw) add("g-kick", e.kx, e.ky, e.kw);
+        add("g-dot", e.x, e.y, e.w);           // 只留主光：副光/光晕会让眼睛发油
       });
     }
 
@@ -437,27 +439,59 @@
       this.squash.v = -3.5 * strength;
     }
 
-    /* ---------------- 庆祝：彩带（旋转已按需关闭） ---------------- */
+    /* ---------------- 庆祝：飘带 + 金色小星 ----------------
+       原来的做法是 90 片随机色相（hue 0~360）的方纸屑，饱和度拉满，
+       在深色页面上就是一把撒花贴纸。改成参考 emoball 的思路：
+         · 数量收下来（粒少才显得是「精心安排的」）
+         · 颜色只用页面自己的色系（薰衣草紫 / 暖白 / 金），不再随机彩虹
+         · 形状换成细飘带（圆头胶囊）+ 几颗金色五角星，比方纸屑优雅得多
+         · 初速、重力、阻力都调轻，是一阵飘落而不是炸开 */
     celebrate() {
       if (this.opts.spin !== false) this.spin.t = 0;
       if (this.onCelebrate) this.onCelebrate();
       const c = this.faceCenter();
-      for (let i = 0; i < 90; i++) {
+      const PALETTE = ["#c9b8ff", "#9a7bff", "#efe9ff", "#ffd76a", "#ffb0c8"];
+
+      /* 细飘带：圆头短线段，靠 lineWidth 表现宽度、靠每帧旋转翻转 */
+      for (let i = 0; i < 26; i++) {
         const a = Math.random() * Math.PI * 2;
-        const sp = 220 + Math.random() * 420;
+        const sp = 150 + Math.random() * 260;
         this.particles.push({
-          x: c.x, y: c.y,
+          kind: "streamer",
+          x: c.x + (Math.random() - 0.5) * 26,
+          y: c.y + (Math.random() - 0.5) * 26,
           vx: Math.cos(a) * sp,
-          vy: Math.sin(a) * sp - 320,          // 向上偏置
-          w: 5 + Math.random() * 7,
-          h: 8 + Math.random() * 8,
+          vy: Math.sin(a) * sp - 210,          // 向上偏置，先扬后落
+          len: 9 + Math.random() * 9,
+          w: 1.8 + Math.random() * 1.5,
           rot: Math.random() * Math.PI,
-          vr: (Math.random() - 0.5) * 14,
-          hue: Math.floor(Math.random() * 360),
-          life: 1.6 + Math.random() * 0.9,
+          vr: (Math.random() - 0.5) * 11,
+          color: PALETTE[Math.floor(Math.random() * 4)],   // 金色单独给星星
+          life: 1.5 + Math.random() * 0.8,
           age: 0,
         });
       }
+      /* 金色小星：少而小，混在飘带里当点缀 */
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 120 + Math.random() * 220;
+        this.particles.push({
+          kind: "star",
+          x: c.x + (Math.random() - 0.5) * 20,
+          y: c.y + (Math.random() - 0.5) * 20,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 180,
+          r: 3.4 + Math.random() * 2.4,
+          rot: Math.random() * Math.PI,
+          vr: (Math.random() - 0.5) * 6,
+          color: "#ffd76a",
+          life: 1.6 + Math.random() * 0.7,
+          age: 0,
+        });
+      }
+      /* 一圈很淡的扩散光环：给「庆祝」一个起手式，比直接炸开收敛得多 */
+      this.rings = this.rings || [];
+      this.rings.push({ x: c.x, y: c.y, r: 16 * this._vs, life: 0.55, age: 0 });
     }
 
     /* ---------------- 每帧心跳 ---------------- */
@@ -642,25 +676,63 @@
       const ctx = fx.getContext("2d");
       ctx.clearRect(0, 0, fx.width, fx.height);
 
-      /* 纸屑 */
-      this.particles = this.particles.filter((p) => {
-        p.age += dt;
-        if (p.age > p.life) return false;
-        p.vy += 900 * dt;                        // 重力
-        p.vx *= 1 - 0.6 * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.rot += p.vr * dt;
-        const fade = 1 - p.age / p.life;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.globalAlpha = fade;
-        ctx.fillStyle = `hsl(${p.hue}, 90%, 62%)`;
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * (0.4 + 0.6 * Math.abs(Math.sin(p.age * 9)))); // 翻转感
-        ctx.restore();
-        return true;
-      });
+      /* 庆祝粒子：飘带（圆头胶囊）+ 金色小星，都是慢慢飘落 */
+      if (this.particles.length) {
+        ctx.lineCap = "round";
+        this.particles = this.particles.filter((p) => {
+          p.age += dt;
+          if (p.age > p.life) return false;
+          p.vy += 520 * dt;                      // 重力：轻，是飘不是砸
+          p.vx *= 1 - 1.1 * dt;                  // 阻力大一点，很快收敛
+          p.vy *= 1 - 0.5 * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.rot += p.vr * dt;
+          const t = p.age / p.life;
+          /* 前 12% 淡入、后 45% 淡出，中间维持——比一路线性衰减干净 */
+          const alpha = t < 0.12 ? t / 0.12 : Math.min(1, (1 - t) / 0.45);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = Math.max(0, alpha);
+          if (p.kind === "star") {
+            this._starPath(ctx, p.r);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+          } else {
+            /* 飘带：线段 + 圆头 = 胶囊；每帧按 sin 轻微伸缩，像被风扭了一下 */
+            const k = 0.55 + 0.45 * Math.abs(Math.cos(p.age * 7));
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = p.w;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, p.len * k);
+            ctx.stroke();
+          }
+          ctx.restore();
+          return true;
+        });
+      }
+
+      /* 扩散光环：庆祝的起手式，一圈淡光晕开 */
+      this.rings = this.rings || [];
+      if (this.rings.length) {
+        this.rings = this.rings.filter((r) => {
+          r.age += dt;
+          if (r.age > r.life) return false;
+          const t = r.age / r.life;
+          const ease = 1 - Math.pow(1 - t, 3);
+          ctx.save();
+          ctx.globalAlpha = (1 - t) * 0.42;
+          ctx.strokeStyle = this._ringColor || "#c9b8ff";
+          ctx.lineWidth = 1.6 * (1 - t) + 0.6;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.r * (1 + ease * 2.6), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+          return true;
+        });
+      }
 
       /* 旋转彩带：色相渐变拖尾 */
       this.ribbon = this.ribbon.filter((pt) => (pt.age += dt) < 0.75);
@@ -679,6 +751,19 @@
         }
         if (this.ribbon.length > 46) this.ribbon.splice(0, this.ribbon.length - 46);
       }
+    }
+
+    /* 五角星路径（中心在原点，外接半径 r） */
+    _starPath(ctx, r) {
+      const inner = r * 0.45;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const rad = i % 2 ? inner : r;
+        const a = -Math.PI / 2 + i * Math.PI / 5;
+        const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
     }
 
     destroy() {
