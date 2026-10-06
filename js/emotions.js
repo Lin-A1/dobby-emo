@@ -3,8 +3,8 @@
  *   00-09 生命周期  10-29 情绪  30-49 智能体状态  50+ 自定义
  * 空位保留，已有 ID 永不变更。
  * effect:   常驻状态特效（think 思考气泡 | orbit 环绕探照点 | bar 进度光带
- *           | hearts 飘爱心 | sparkle 环绕星光 | glitch 故障抖动
- *           | steam 冒蒸汽 | sleep 月亮）
+ *           | glitch 故障抖动 | steam 冒蒸汽 | sleep 月亮）
+ *           注意：飘爱心 / 星光这类装饰粒子已整体移除——只保留表达「状态」的特效
  * img:      软件部固定形象烘焙表情（assets/sw/*.webp）
  * eyeLayer: 可动眼层 —— patch 是「抹掉烘焙眼睛」的脸部补丁，sprite 是眼球精灵，
  *           x/y/w/h 为图像坐标百分比，max 为 300px 尺寸下眼球最大位移（px）。
@@ -44,8 +44,8 @@ window.DOBBY_EMOTION_PRESET = [
 
   { id: "10", name: "开心",    en: "Happy",     group: "emotion", img: "assets/sw/10.webp" },
   { id: "11", name: "大笑",    en: "Laugh",     group: "emotion", img: "assets/sw/11.webp" },
-  { id: "12", name: "花痴",    en: "Love",      group: "emotion", img: "assets/sw/12.webp", effect: "hearts" },
-  { id: "13", name: "兴奋",    en: "Excited",   group: "emotion", img: "assets/sw/13.webp", effect: "sparkle" },
+  { id: "12", name: "花痴",    en: "Love",      group: "emotion", img: "assets/sw/12.webp" },
+  { id: "13", name: "兴奋",    en: "Excited",   group: "emotion", img: "assets/sw/13.webp" },
   { id: "14", name: "惊讶",    en: "Surprised", group: "emotion", img: "assets/sw/14.webp",
     eyeLayer: { patch: "assets/sw/14-patch.webp", sprite: "assets/sw/14-eyes.webp",
                 x: 26.077, y: 38.995, w: 43.541, h: 25.997, max: 7, maxY: 5.5,
@@ -69,6 +69,6 @@ window.DOBBY_EMOTION_PRESET = [
                 glint: GLINT["30"] } },
   { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "orbit" },
   { id: "32", name: "出错了",  en: "Error",     group: "agent", img: "assets/sw/32.webp", effect: "glitch" },
-  { id: "33", name: "完成",    en: "Success",   group: "agent", img: "assets/sw/33.webp", effect: "sparkle" },
+  { id: "33", name: "完成",    en: "Success",   group: "agent", img: "assets/sw/33.webp" },
   { id: "34", name: "处理中",  en: "Loading",   group: "agent", img: "assets/sw/34.webp", effect: "bar" },
 ];

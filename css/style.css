@@ -295,7 +295,6 @@ body {
   transform: rotate(45deg);
 }
 .dobby-tips.show { opacity: 1; transform: translate(-50%, calc(-100% - 6px)); }
-.dobby-fx { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
 
 /* 睡觉时的氛围月亮 */
 .dobby-zzz {
@@ -572,29 +571,6 @@ select {
 .btn:disabled { opacity: .45; cursor: default; }
 .btn:disabled:hover { transform: none; border-color: var(--panel-border); }
 
-/* 爱心：两个圆 + 旋转 45° 的方块拼出来，不依赖字体里的 ♥ 字形。
-   用渐变而不是平涂、阴影收轻收小 —— 平涂 + 大阴影就是「贴纸」的来源 */
-.f-heart {
-  position: absolute; z-index: 71; pointer-events: none;
-  width: 12px; height: 12px;
-  background: linear-gradient(135deg, #ff9db0, #ff6b81);
-  transform: rotate(45deg);
-  filter: drop-shadow(0 1px 5px rgba(255, 107, 129, .34));
-  animation: heart-rise 1.4s ease-out forwards;
-}
-.f-heart::before, .f-heart::after {
-  content: ""; position: absolute;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: inherit;
-}
-.f-heart::before { left: -6px; top: 0; }
-.f-heart::after { top: -6px; left: 0; }
-@keyframes heart-rise {
-  0%   { transform: translate(0, 0) rotate(45deg) scale(.5); opacity: 0; }
-  15%  { opacity: 1; }
-  100% { transform: translate(var(--dx, 0px), -90px) rotate(45deg) scale(1.25); opacity: 0; }
-}
-
 .spark {
   position: absolute; pointer-events: none;
   width: 8px; height: 8px; border-radius: 50%;
@@ -698,41 +674,6 @@ select {
   100% { left: 100%; }
 }
 @keyframes dot-bounce { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-5px); opacity: 1; } }
-
-/* 花痴/成功：持续飘浮粒子（心 / 星，同样是 CSS 画的） */
-.fx-p {
-  position: absolute; bottom: 52%;
-  pointer-events: none;
-  animation: fx-rise 1.6s ease-out forwards;
-}
-.fx-p.fx-heart {
-  width: 9px; height: 9px;
-  background: linear-gradient(135deg, #ff9db0, #ff6b81);
-  filter: drop-shadow(0 1px 4px rgba(255, 107, 129, .34));
-  animation-name: fx-rise-rot;
-}
-.fx-p.fx-heart::before, .fx-p.fx-heart::after {
-  content: ""; position: absolute;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: inherit;
-}
-.fx-p.fx-heart::before { left: -4.5px; top: 0; }
-.fx-p.fx-heart::after { top: -4.5px; left: 0; }
-.fx-p.fx-star {
-  width: 7px; height: 7px; background: #ffd76a;
-  box-shadow: 0 0 6px rgba(255, 215, 106, .7);
-  animation-name: fx-rise-rot;
-}
-@keyframes fx-rise {
-  0%   { transform: translateY(10px) scale(.5); opacity: 0; }
-  15%  { opacity: 1; }
-  100% { transform: translateY(-80px) scale(1.2) rotate(18deg); opacity: 0; }
-}
-@keyframes fx-rise-rot {
-  0%   { transform: translateY(10px) rotate(45deg) scale(.5); opacity: 0; }
-  15%  { opacity: 1; }
-  100% { transform: translateY(-80px) rotate(63deg) scale(1.2); opacity: 0; }
-}
 
 /* 出错：故障抖动 + 红蓝残影 */
 .dobby[data-fx="glitch"] .dobby-frame.show {

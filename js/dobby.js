@@ -93,11 +93,6 @@
       this.hopT = 1;                     // <1 表示正在跳
       this.blink = 0;                    // 0→1→0 眨眼相位
       this._blinkTimer = 2 + Math.random() * 3;
-      this.spin = { t: 1, dur: 0.9 };    // t<1 表示旋转中
-      this.particles = [];               // 庆祝粒子（飘带 / 小星）
-      this.ribbon = [];                  // 旋转彩带拖尾（跟随模式关闭后备用）
-      this.rings = [];                   // 庆祝起手的扩散光环
-      this._ringColor = "#c9b8ff";
       this.emotion = null;
       this.sticky = false;
       this.follow = false;               // 跟随模式（锚点缓慢追指针）
@@ -145,13 +140,9 @@
       this._tipsShown = false;
       this.zzzEl = el("div", "dobby-zzz", root);
       this.zzzEl.innerHTML = "<span>z</span><span>z</span><span>z</span>";
-      this.auraEl = el("div", "dobby-aura", root);   // 常驻特效层（光环/爱心/蒸汽等）
+      this.auraEl = el("div", "dobby-aura", root);   // 常驻状态特效层（思考气泡/光带等）
       this._fxType = "";
-      this._fxTimer = 0;
       this.speakT = 0;
-
-      this.fx = el("canvas", "dobby-fx", this.mount);
-      this._fxSize = { w: 0, h: 0 };
     }
 
     /* 一帧脸：base 铺满，patch / 眼球组按眼层百分比定位。
@@ -225,9 +216,8 @@
         if (!self.dragging) return;
         self.dragging = false;
         if (down && down.moved < 6 && performance.now() - down.t < 400) {
-          self.celebrate();          // 点击 → 庆祝
-        } else if (self.opts.spin !== false && Math.hypot(self.vel.x, self.vel.y) > 900) {
-          self.spin.t = 0;           // 快速甩出 → 顺势旋转（可关）
+          self.hop(1.05);            // 轻点 → 蹦一下（庆祝粒子已移除）
+          if (self.onTap) self.onTap();
         }
         down = null;
       };
@@ -343,15 +333,6 @@
                 : "";
     }
 
-    /* 持续飘浮粒子（爱心 / 星光）—— 形用 CSS 画，不依赖 emoji 字体 */
-    _spawnFxParticle() {
-      if (this.auraEl.querySelectorAll(".fx-p").length >= 8) return;
-      const p = el("span", "fx-p " + (this._fxType === "hearts" ? "fx-heart" : "fx-star"), this.auraEl);
-      p.style.left = 26 + Math.random() * 48 + "%";
-      p.style.animationDuration = 1.2 + Math.random() * 0.9 + "s";
-      setTimeout(() => p.remove(), 2300);
-    }
-
     /* ---------------- 说话（气泡 + 快速小抖动） ---------------- */
     speak(text, dur = 2200) {
       this._showTips(text);
@@ -437,61 +418,6 @@
     hop(strength = 1) {
       this.hopT = 0;
       this.squash.v = -3.5 * strength;
-    }
-
-    /* ---------------- 庆祝：飘带 + 金色小星 ----------------
-       原来的做法是 90 片随机色相（hue 0~360）的方纸屑，饱和度拉满，
-       在深色页面上就是一把撒花贴纸。改成参考 emoball 的思路：
-         · 数量收下来（粒少才显得是「精心安排的」）
-         · 颜色只用页面自己的色系（薰衣草紫 / 暖白 / 金），不再随机彩虹
-         · 形状换成细飘带（圆头胶囊）+ 几颗金色五角星，比方纸屑优雅得多
-         · 初速、重力、阻力都调轻，是一阵飘落而不是炸开 */
-    celebrate() {
-      if (this.opts.spin !== false) this.spin.t = 0;
-      if (this.onCelebrate) this.onCelebrate();
-      const c = this.faceCenter();
-      const PALETTE = ["#c9b8ff", "#9a7bff", "#efe9ff", "#ffd76a", "#ffb0c8"];
-
-      /* 细飘带：圆头短线段，靠 lineWidth 表现宽度、靠每帧旋转翻转 */
-      for (let i = 0; i < 26; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const sp = 150 + Math.random() * 260;
-        this.particles.push({
-          kind: "streamer",
-          x: c.x + (Math.random() - 0.5) * 26,
-          y: c.y + (Math.random() - 0.5) * 26,
-          vx: Math.cos(a) * sp,
-          vy: Math.sin(a) * sp - 210,          // 向上偏置，先扬后落
-          len: 9 + Math.random() * 9,
-          w: 1.8 + Math.random() * 1.5,
-          rot: Math.random() * Math.PI,
-          vr: (Math.random() - 0.5) * 11,
-          color: PALETTE[Math.floor(Math.random() * 4)],   // 金色单独给星星
-          life: 1.5 + Math.random() * 0.8,
-          age: 0,
-        });
-      }
-      /* 金色小星：少而小，混在飘带里当点缀 */
-      for (let i = 0; i < 7; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const sp = 120 + Math.random() * 220;
-        this.particles.push({
-          kind: "star",
-          x: c.x + (Math.random() - 0.5) * 20,
-          y: c.y + (Math.random() - 0.5) * 20,
-          vx: Math.cos(a) * sp,
-          vy: Math.sin(a) * sp - 180,
-          r: 3.4 + Math.random() * 2.4,
-          rot: Math.random() * Math.PI,
-          vr: (Math.random() - 0.5) * 6,
-          color: "#ffd76a",
-          life: 1.6 + Math.random() * 0.7,
-          age: 0,
-        });
-      }
-      /* 一圈很淡的扩散光环：给「庆祝」一个起手式，比直接炸开收敛得多 */
-      this.rings = this.rings || [];
-      this.rings.push({ x: c.x, y: c.y, r: 16 * this._vs, life: 0.55, age: 0 });
     }
 
     /* ---------------- 每帧心跳 ---------------- */
@@ -611,23 +537,11 @@
         hopY = -Math.sin(Math.PI * this.hopT) * 46;
       }
 
-      /* 旋转（点击庆祝 / 甩出） */
-      let spinDeg = 0;
-      if (this.spin.t < 1) {
-        this.spin.t = Math.min(1, this.spin.t + dt / this.spin.dur);
-        const p = this.spin.t;
-        const ease = 1 - Math.pow(1 - p, 3);
-        spinDeg = 360 * ease;
-        // 彩带拖尾采样
-        const c = this.faceCenter();
-        this.ribbon.push({ x: c.x, y: c.y - 30, hue: (t * 420) % 360, age: 0 });
-      }
-
       /* 应用变换（vs：小屏整体缩放，围绕锚点中心） */
       this.root.style.transform =
         `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0) scale(${this._vs})`;
       this.bobEl.style.transform = `translateY(${bobY}px)`;
-      const rot = sway + this.gaze.x * 2.4 + spinDeg;
+      const rot = sway + this.gaze.x * 2.4;
       this.tiltEl.style.transform =
         `translate(${this.gaze.x * 3}px, ${this.gaze.y * 2.4}px) rotate(${rot}deg)`;
       const sx = (1 + (1 - sq.s) * 0.55) * breath;
@@ -643,17 +557,6 @@
       /* 气泡跟随头顶 */
       if (this._tipsShown) this._placeTips();
 
-      /* 彩带纸屑 & 拖尾 */
-      this._tickFx(dt);
-
-      /* 常驻特效粒子（爱心 / 星光） */
-      this._fxTimer -= dt;
-      if (this._fxTimer <= 0 &&
-          (this._fxType === "hearts" || this._fxType === "sparkle")) {
-        this._fxTimer = 0.55;
-        this._spawnFxParticle();
-      }
-
       /* 引擎级自动入睡（默认关闭，行为层接管） */      if (this.opts.autosleep) {
         const idleFor = performance.now() - pointer.t;
         if (!this.sticky && !sleeping && idleFor > this.opts.autosleepDelay) {
@@ -664,113 +567,10 @@
       }
     }
 
-    /* ---------------- 粒子 & 拖尾绘制 ---------------- */
-    _tickFx(dt) {
-      const fx = this.fx;
-      const w = this.mount.clientWidth, h = this.mount.clientHeight;
-      if (this._fxSize.w !== w || this._fxSize.h !== h) {
-        this._fxSize = { w, h };
-        fx.width = w;
-        fx.height = h;
-      }
-      const ctx = fx.getContext("2d");
-      ctx.clearRect(0, 0, fx.width, fx.height);
-
-      /* 庆祝粒子：飘带（圆头胶囊）+ 金色小星，都是慢慢飘落 */
-      if (this.particles.length) {
-        ctx.lineCap = "round";
-        this.particles = this.particles.filter((p) => {
-          p.age += dt;
-          if (p.age > p.life) return false;
-          p.vy += 520 * dt;                      // 重力：轻，是飘不是砸
-          p.vx *= 1 - 1.1 * dt;                  // 阻力大一点，很快收敛
-          p.vy *= 1 - 0.5 * dt;
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
-          p.rot += p.vr * dt;
-          const t = p.age / p.life;
-          /* 前 12% 淡入、后 45% 淡出，中间维持——比一路线性衰减干净 */
-          const alpha = t < 0.12 ? t / 0.12 : Math.min(1, (1 - t) / 0.45);
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.rot);
-          ctx.globalAlpha = Math.max(0, alpha);
-          if (p.kind === "star") {
-            this._starPath(ctx, p.r);
-            ctx.fillStyle = p.color;
-            ctx.fill();
-          } else {
-            /* 飘带：线段 + 圆头 = 胶囊；每帧按 sin 轻微伸缩，像被风扭了一下 */
-            const k = 0.55 + 0.45 * Math.abs(Math.cos(p.age * 7));
-            ctx.strokeStyle = p.color;
-            ctx.lineWidth = p.w;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, p.len * k);
-            ctx.stroke();
-          }
-          ctx.restore();
-          return true;
-        });
-      }
-
-      /* 扩散光环：庆祝的起手式，一圈淡光晕开 */
-      this.rings = this.rings || [];
-      if (this.rings.length) {
-        this.rings = this.rings.filter((r) => {
-          r.age += dt;
-          if (r.age > r.life) return false;
-          const t = r.age / r.life;
-          const ease = 1 - Math.pow(1 - t, 3);
-          ctx.save();
-          ctx.globalAlpha = (1 - t) * 0.42;
-          ctx.strokeStyle = this._ringColor || "#c9b8ff";
-          ctx.lineWidth = 1.6 * (1 - t) + 0.6;
-          ctx.beginPath();
-          ctx.arc(r.x, r.y, r.r * (1 + ease * 2.6), 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-          return true;
-        });
-      }
-
-      /* 旋转彩带：色相渐变拖尾 */
-      this.ribbon = this.ribbon.filter((pt) => (pt.age += dt) < 0.75);
-      if (this.ribbon.length > 1) {
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        for (let i = 1; i < this.ribbon.length; i++) {
-          const a = this.ribbon[i - 1], b = this.ribbon[i];
-          const alpha = (1 - b.age / 0.75) * 0.85;
-          ctx.strokeStyle = `hsla(${b.hue}, 95%, 65%, ${alpha})`;
-          ctx.lineWidth = 2 + (1 - b.age / 0.75) * 9;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
-        if (this.ribbon.length > 46) this.ribbon.splice(0, this.ribbon.length - 46);
-      }
-    }
-
-    /* 五角星路径（中心在原点，外接半径 r） */
-    _starPath(ctx, r) {
-      const inner = r * 0.45;
-      ctx.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const rad = i % 2 ? inner : r;
-        const a = -Math.PI / 2 + i * Math.PI / 5;
-        const x = Math.cos(a) * rad, y = Math.sin(a) * rad;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-    }
-
     destroy() {
       DobbyEmo.instances.delete(this);
       removeEventListener("resize", this._onResize);
       this.root.remove();
-      this.fx.remove();
     }
 
     /* ---------------- 共享心跳 ---------------- */

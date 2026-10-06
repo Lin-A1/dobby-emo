@@ -145,18 +145,6 @@
     setTimeout(() => t.remove(), 3400);
   }
 
-  function floatHearts(n = 3) {
-    const c = dobby.faceCenter();
-    for (let i = 0; i < n; i++) {
-      const h = document.createElement("span");
-      h.className = "f-heart";                 // 形状用 CSS 画（避免依赖 emoji 字体）
-      h.style.left = c.x - 10 + (Math.random() - 0.5) * 90 + "px";
-      h.style.top = c.y - 20 + (Math.random() - 0.5) * 40 + "px";
-      h.style.setProperty("--dx", (Math.random() - 0.5) * 60 + "px");
-      layer.appendChild(h);
-      setTimeout(() => h.remove(), 1500);
-    }
-  }
 
   /* ============================================================
    * 羁绊（好感度）
@@ -204,8 +192,7 @@
     function onLevelUp(lv) {
       toast(`羁绊升级！Lv.${lv + 1} · ${LEVELS[lv].name}`);
       Sound.levelup();
-      dobby.celebrate();
-      floatHearts(8);
+      dobby.hop(1.1);
     }
     curLv = level();
     render();
@@ -290,7 +277,6 @@
       } else if (near && d < 84 && cooldown("pet", 9000)) {
         react("12", { tips: "♥", ttl: 1300 });
         Sound.squeak();
-        floatHearts(3);
         Bond.add(6);
       } else if (near && d < 168 && cooldown("close", 14000)) {
         react("18", { tips: pick(PET_TIPS), ttl: 1700 });
@@ -310,7 +296,6 @@
       if (dobby.dragging && Math.hypot(dobby.pos.x, dobby.pos.y) < 8 && !sleeping && cooldown("hold", 8000)) {
         react("12", { tips: "好舒服…", ttl: 1600, force: true });
         Sound.squeak();
-        floatHearts(4);
         Bond.add(5);
       }
     }, 1100);
@@ -377,7 +362,7 @@
 
   /* ---------------- 连戳它 → 生气 ---------------- */
   const pokes = [];
-  dobby.onCelebrate = () => {
+  dobby.onTap = () => {
     Sound.tada();
     Bond.add(4);
     const now = performance.now();
@@ -468,7 +453,6 @@
     feedBtn.disabled = true;
     setTimeout(() => (feedBtn.disabled = false), 15000);
     Sound.munch();
-    floatHearts(5);
     Bond.add(10);
     react("11", { tips: "好吃！还要～", ttl: 1500 });
   });
