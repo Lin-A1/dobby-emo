@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Dobby Emo 表情馆 —— 18 种状态表情总览，矢量眼环实时驱动，点击预览、悬停看动画。">
+<title>Dobby Emo · 表情馆</title>
+<link rel="icon" type="image/webp" href="assets/sw/00.webp">
+<link rel="preload" as="image" href="assets/sw/00.webp">
+<link rel="stylesheet" href="css/style.css?v=70">
+<link rel="stylesheet" href="css/gallery.css?v=70">
+</head>
+<body class="gallery-body">
+
+<header class="topbar">
+  <div class="brand">
+    <a class="gallery-back" href="index.html" title="返回主页">←</a>
+    <img src="assets/sw/00.webp" alt="Dobby" class="brand-logo" id="brandLogo">
+    <div class="brand-text">
+      <h1>表情馆</h1>
+      <p>18 种状态表情 · 矢量眼环实时驱动 · 点击预览</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="status-chip" id="statusChip">ID 00 / 18 · 待机</span>
+    <button class="btn ghost" id="skinToggle" title="切换黑白形象"><i class="dot"></i><span class="lbl">形象</span></button>
+    <button class="btn ghost" id="themeToggle" title="切换明暗主题"><i class="dot"></i><span class="lbl">主题</span></button>
+  </div>
+</header>
+
+<main class="gallery">
+
+  <!-- ===== 舞台：当前选中的表情，放大实时渲染 ===== -->
+  <section class="stage">
+    <div class="stage-face"><div id="stageBox"></div></div>
+    <div class="stage-info">
+      <div class="stage-id" id="stageId">00</div>
+      <h2 id="stageName">待机</h2>
+      <p id="stageEn">Idle</p>
+      <p class="stage-desc" id="stageDesc"></p>
+      <div class="stage-tags" id="stageTags"></div>
+      <p class="stage-hint">点缩略图切换 · 悬停看动画 · ← / → 键翻页</p>
+    </div>
+  </section>
+
+  <!-- ===== 分类 + 陈列墙 ===== -->
+  <section class="wall-section">
+    <div class="wall-head">
+      <h2>陈列墙 <span class="wall-count" id="wallCount"></span></h2>
+      <div class="filters" id="filters"></div>
+    </div>
+    <div class="wall" id="wall"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>Dobby Emo · 眼环几何取自 <a href="https://github.com/sam70361/aora-bot" target="_blank" rel="noopener">aora-bot / Emotion Ball</a>（MIT）· 引擎与素材仅限个人学习使用</p>
+</footer>
+
+<script src="js/eyering.js?v=70"></script>
+<script src="js/emotions.js?v=70"></script>
+<script src="js/dobby.js?v=70"></script>
+<script src="js/gallery.js?v=70"></script>
+</body>
+</html>

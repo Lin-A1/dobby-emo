@@ -73,6 +73,12 @@
   const statusChip = document.getElementById("statusChip");
   const brandLogo = document.getElementById("brandLogo");
 
+  /* 皮肤状态：陈列墙的缩略图也要用，所以在这里就声明。
+     放到文件末尾的「皮肤切换」那一段会踩到 let 的暂时性死区 ——
+     渲染墙时读到未初始化的 skin，整个脚本就此中断 */
+  const SKINS = { dark: "assets/sw", light: "assets/sw-white" };
+  let skin = localStorage.getItem("dobby-skin") === "light" ? "light" : "dark";
+
   const hr = hero.getBoundingClientRect();
   const dobby = new DobbyEmo(layer, {
     size: 300,
@@ -461,11 +467,14 @@
    * 陈列墙
    * ============================================================ */
   const wall = document.getElementById("wall");
+  const wallThumbs = new Map();     // 陈列墙上的缩略图实例（重绘前先销毁）
   const wallCount = document.getElementById("wallCount");
   const GROUP_NAMES = { lifecycle: "生命", emotion: "情绪", agent: "智能体", custom: "自定义" };
 
   function renderWall() {
     const list = DobbyEmotions.list();
+    wallThumbs.forEach((t) => t.destroy());
+    wallThumbs.clear();
     wall.innerHTML = "";
     wallCount.textContent = `共 ${list.length} 种`;
     list.forEach((def) => {
@@ -474,9 +483,14 @@
       item.dataset.id = def.id;
       item.innerHTML = `
         <span class="w-group">${GROUP_NAMES[def.group] || def.group}</span>
-        <img src="${def.img}" alt="${def.name}" loading="lazy">
+        <div class="wface"></div>
         <div class="w-name">${def.name}</div>
         <div class="w-id">${def.id} · ${def.en}</div>`;
+      /* 缩略图与角色、与表情馆共用同一套渲染（底图 + 无眼补丁 + 眼环），
+         否则用矢量眼的那几个表情在墙上还是烘焙眼，两边对不上 */
+      if (typeof EmotionThumb === "function") {
+        wallThumbs.set(def.id, new EmotionThumb(item.querySelector(".wface"), def, skin, {}));
+      }
       item.addEventListener("click", () => {
         stopTour();
         setUser(def.id, { tips: def.name });
@@ -690,9 +704,7 @@
   /* ============================================================
    * 黑白形象切换（dark: 经典黑 / light: 奶白）
    * ============================================================ */
-  const SKINS = { dark: "assets/sw", light: "assets/sw-white" };
   const skinToggle = document.getElementById("skinToggle");
-  let skin = localStorage.getItem("dobby-skin") === "light" ? "light" : "dark";
 
   /* 两套皮肤的瞳色（由素材实测主色得出），眼环要用同一支墨色 */
   const EYE_INK = { dark: "#1c1a23", light: "#57443e" };

@@ -217,6 +217,101 @@
     }
   };
 
+  /* ============================================================
+   * 缩略图渲染：把「底图 + 无眼补丁 + 眼环」静态画进任意尺寸的方块。
+   * 陈列墙与表情馆共用同一套几何，所以缩略图和舞台上的角色长得一样
+   * （早先陈列墙直接用底图，那五个用矢量眼的表情在墙上还是烘焙眼，
+   * 两边对不上）。悬停时调 play() 让这一张动起来，移开 stop()。
+   * ============================================================ */
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  function EmotionThumb(box, def, skin, opt) {
+    opt = opt || {};
+    this.box = box;
+    this.skin = skin || "dark";
+    this.size = opt.size || 300;
+    box.classList.add("thumb");
+    box.style.width = box.style.height = "100%";
+
+    this.base = document.createElement("img");
+    this.base.className = "thumb-base";
+    box.appendChild(this.base);
+
+    this.patch = document.createElement("img");
+    this.patch.className = "thumb-patch";
+    box.appendChild(this.patch);
+
+    var wrap = document.createElement("div");
+    wrap.className = "thumb-rings";
+    this.svg = document.createElementNS(SVGNS, "svg");
+    this.svg.setAttribute("viewBox", "0 0 300 300");
+    wrap.appendChild(this.svg);
+    box.appendChild(wrap);
+
+    this.rings = new EyeRings(this.svg, opt.geo || EYE_GEO);
+    this.setDef(def, this.skin);
+    if (opt.animate) this.play();
+  }
+
+  EmotionThumb.prototype.setDef = function (def, skin) {
+    if (skin) this.skin = skin;
+    var prefix = this.skin === "light" ? "assets/sw-white/" : "assets/sw/";
+    this.def = def;
+    this.base.src = def.img || (prefix + def.id + ".webp");
+
+    var cfg = def.eyeRings || def.eyeLayer;
+    if (cfg && cfg.patch) {
+      this.patch.src = prefix + def.id + "-patch.webp";
+      this.patch.style.left = cfg.x + "%";
+      this.patch.style.top = cfg.y + "%";
+      this.patch.style.width = cfg.w + "%";
+      this.patch.style.height = cfg.h + "%";
+      this.patch.style.display = "";
+    } else {
+      this.patch.style.display = "none";
+    }
+
+    if (def.eyeRings) {
+      this.svg.parentNode.style.display = "";
+      this.rings.setPool(def.eyeRings.pool, {
+        poolMs: def.eyeRings.poolMs,
+        open: def.eyeRings.open,
+        openR: def.eyeRings.openR,
+        scaleY: def.eyeRings.scaleY,
+        blinkMs: def.eyeRings.blinkMs === null ? null : def.eyeRings.blinkMs,
+        look: def.eyeRings.look,
+        color: this.skin === "light" ? "#57443e" : "#1c1a23"
+      });
+      /* 静止态：把形变插值跑到收敛（两次大 dt 足够） */
+      this.rings.tick(1, null);
+      this.rings.tick(1, null);
+    } else {
+      this.svg.parentNode.style.display = "none";
+    }
+  };
+
+  EmotionThumb.prototype.play = function () {
+    if (this._raf) return;
+    var self = this, last = performance.now();
+    var loop = function (now) {
+      var dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      if (self.def && self.def.eyeRings) self.rings.tick(dt, { x: 0, y: 0 });
+      self._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  };
+
+  EmotionThumb.prototype.stop = function () {
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
+  };
+
+  EmotionThumb.prototype.destroy = function () {
+    this.stop();
+    this.box.innerHTML = "";
+  };
+
+  global.EmotionThumb = EmotionThumb;
   global.DobbyEyeRings = EyeRings;
   global.dobbyEyeRingsData = EB_EYES;
 })(window);

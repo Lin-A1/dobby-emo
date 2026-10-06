@@ -6,6 +6,9 @@
   <img src="docs/screenshots/dark.png" width="49%" alt="经典黑猫（思考中）">
   <img src="docs/screenshots/light.png" width="49%" alt="奶油香草（浅色主题）">
 </p>
+<p align="center">
+  <img src="docs/screenshots/gallery.png" width="86%" alt="表情馆：舞台 + 分类陈列墙">
+</p>
 
 > 灵感致谢 [aora-bot](https://github.com/sam70361/aora-bot)（Emotion Ball 表情引擎），本项目在其架构思路上做了形象与交互的重新设计。
 
@@ -19,6 +22,7 @@
 - 双皮肤：经典黑猫 / 奶油香草，一键切换（主角色、陈列墙、徽标三处联动，选择持久化）
 - 表情切换带轻柔缩放过渡；持续状态有专属"进行中"特效：思考=头顶思考气泡、加载=流动光带、花痴=飘爱心、出错=故障抖动、生气=冒蒸汽、睡觉=月亮
 - 表情数据支持运行时注册 / 导入 / 导出（JSON 配置）
+- **表情馆**（`gallery.html`）：舞台放大看当前表情 + 分类陈列墙（全部 / 生命 / 情绪 / 智能体，带计数），点缩略图切换、悬停看该张动起来、← / → 键翻页。缩略图与主页角色、与舞台共用同一套渲染（底图 + 无眼补丁 + 眼环），三处显示一致
 
 **行为反应层**（无需任何指令，情绪从交互中产生；只有指针进到角色附近才会反应，在页面别处操作不会被打扰）
 
@@ -98,13 +102,15 @@ python tools/make-eyes.py   # 需要 numpy / Pillow / scipy
 ## 目录结构
 
 ```
-├── index.html            # 入口页（演示 + 可行性说明 + 接入示例）
-├── compare.html          # 形象候选对比页（设计过程工具）
+├── index.html            # 主页（演示 + 可行性说明 + 接入示例）
+├── gallery.html          # 表情馆（舞台 + 分类陈列墙 + 悬停预览）
 ├── css/style.css         # 主题 / 动效 / 特效层 / 移动端适配
+├── css/gallery.css       # 表情馆 + 缩略图样式
 ├── js/
 │   ├── emotions.js       # 表情注册表（ID 分段 + 素材路径 + 特效标记 + 眼层几何）
 │   ├── dobby.js          # 引擎核心（弹簧物理 / 心跳 / 协议 / 粒子 / 眼层）
-│   ├── eyering.js        # 眼环几何数据 + 矢量眼渲染（取自 aora-bot，MIT）
+│   ├── eyering.js        # 眼环几何数据 + 矢量眼渲染 + 缩略图渲染（取自 aora-bot，MIT）
+│   ├── gallery.js        # 表情馆逻辑（筛选 / 舞台 / 键盘）
 │   ├── main.js           # 行为反应层 + 羁绊 + 聊天演示 + 皮肤切换
 │   └── eyes.js           # 矢量眼引擎（早期实验，当前形象改用眼层方案，未启用）
 ├── assets/sw,sw-white/   # 黑 / 白两套表情素材（WebP + 眼层补丁 / 精灵）
