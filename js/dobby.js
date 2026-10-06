@@ -152,17 +152,22 @@
       this._fxSize = { w: 0, h: 0 };
     }
 
-    /* 一帧脸：base 铺满，patch / sprite 按眼层百分比定位。
-       眼精灵之上叠一层高光：烘焙素材的眼睛是哑光的，少了镜面点就
-       读成色块而不是眼睛。高光与精灵同框同位置，跟着视线一起动。 */
+    /* 一帧脸：base 铺满，patch / 眼球组按眼层百分比定位。
+       眼球组 = 精灵 + 球面明暗 + 高光，三者共用一个 transform 跟随视线：
+         sprite 烘焙出来的哑光眼形
+         shade  用精灵自己的 alpha 当遮罩，把「上缘眼窝阴影 + 下缘反光」画进眼内
+                （少了这层，眼睛就是一块平贴的黑，整只猫会有贴纸感）
+         glint  主光点 + 右下副光点，见 _placeGlint */
     _buildFrame(cls) {
       const f = el("div", ("dobby-frame " + cls).trim(), this.faceEl);
       f.base = el("img", "f-base", f);
       f.patch = el("img", "f-patch", f);
-      f.sprite = el("img", "f-sprite", f);
-      f.glint = el("i", "f-glint", f);
+      f.eye = el("div", "f-eye", f);
+      f.sprite = el("img", "f-sprite", f.eye);
+      f.shade = el("i", "f-shade", f.eye);
+      f.glint = el("i", "f-glint", f.eye);
       f.base.draggable = f.patch.draggable = f.sprite.draggable = false;
-      f.patch.style.display = f.sprite.style.display = f.glint.style.display = "none";
+      f.patch.style.display = f.eye.style.display = "none";
       return f;
     }
 
@@ -254,12 +259,16 @@
           next.patch.src = lay.patch;
           next.sprite.src = lay.sprite;
           this._placeLayer(next.patch, lay);
-          this._placeLayer(next.sprite, lay);
+          this._placeLayer(next.eye, lay);
+          /* 用精灵自己的 alpha 当遮罩，球面明暗才会严格落在眼形里 */
+          const m = 'url("' + lay.sprite + '")';
+          next.shade.style.webkitMaskImage = m;
+          next.shade.style.maskImage = m;
           this._placeGlint(next.glint, lay);
-          next.patch.style.display = next.sprite.style.display = next.glint.style.display = "";
+          next.patch.style.display = next.eye.style.display = "";
         } else {
-          next.patch.style.display = next.sprite.style.display = next.glint.style.display = "none";
-          next.sprite.style.transform = "";
+          next.patch.style.display = next.eye.style.display = "none";
+          next.eye.style.transform = "";
         }
         this._front.classList.remove("show");
         next.classList.add("show");
@@ -285,27 +294,31 @@
       node.style.height = lay.h + "%";
     }
 
-    /* 高光层：沿用眼精灵的框，框内按 lay.glint 的每只眼锚点分布补光。
-       每条 glint = { x, y, w, hi }，全部相对精灵框：
-         x/y = 高光点中心位置（%），w = 点宽（%）
-       精灵框是扁的，CSS 里 width:% 按容器宽解析、height:% 按容器高解析，
-       故要让点保持正圆，高度百分比 = 宽度百分比 × (框宽/框高)。
-       hi:1 表示素材已自带高光（如 14 号惊讶），该眼不再叠加，避免双高光。 */
+    /* 高光层：在眼球框内按 lay.glint 的锚点补光（框本身由眼层的定位负责）。
+       每条 glint = { x, y, w, kx, ky, kw, hi }，全部相对精灵框：
+         x/y/w     主光点：中心位置（%）与点宽（%）
+         kx/ky/kw  副光点：右下角那粒冷调反射光，kw=0 不画
+         hi:1      素材已自带高光（如 14 号惊讶），整只眼不再叠加，避免双高光
+       精灵框是扁的：CSS 里 width:% 按容器宽解析、height:% 按容器高解析，
+       故要让点保持正圆，高度百分比 = 宽度百分比 × (框宽/框高)。 */
     _placeGlint(node, lay) {
-      this._placeLayer(node, lay);
       const g = lay.glint;
-      if (!g || !g.length) { node.style.display = "none"; return; }
-      /* 框宽高比：lay.w/lay.h 是同一正方形底图上的百分比，比值即像素比 */
-      const ar = (lay.w && lay.h) ? lay.w / lay.h : 1.4;
       node.innerHTML = "";
+      if (!g || !g.length) { node.style.display = "none"; return; }
       node.style.display = "";
+      const ar = (lay.w && lay.h) ? lay.w / lay.h : 1.4;
+      const add = (cls, x, y, w) => {
+        const d = el("span", cls);
+        d.style.width = w + "%";
+        d.style.height = (w * ar) + "%";
+        d.style.left = x + "%";
+        d.style.top = y + "%";
+        node.appendChild(d);
+      };
       g.forEach((e) => {
-        const dot = el("span", "g-dot" + (e.hi ? " g-has" : ""));
-        dot.style.width = e.w + "%";
-        dot.style.height = (e.w * ar) + "%";
-        dot.style.left = e.x + "%";
-        dot.style.top = e.y + "%";
-        node.appendChild(dot);
+        if (e.hi) return;                      // 素材自带高光，不叠加
+        add("g-dot", e.x, e.y, e.w);
+        if (e.kw) add("g-kick", e.kx, e.ky, e.kw);
       });
     }
 
@@ -381,11 +394,14 @@
           f.patch.src = lay.patch;
           f.sprite.src = lay.sprite;
           this._placeLayer(f.patch, lay);
-          this._placeLayer(f.sprite, lay);
+          this._placeLayer(f.eye, lay);
+          const m = 'url("' + lay.sprite + '")';
+          f.shade.style.webkitMaskImage = m;
+          f.shade.style.maskImage = m;
           this._placeGlint(f.glint, lay);
-          f.patch.style.display = f.sprite.style.display = f.glint.style.display = "";
+          f.patch.style.display = f.eye.style.display = "";
         } else {
-          f.patch.style.display = f.sprite.style.display = f.glint.style.display = "none";
+          f.patch.style.display = f.eye.style.display = "none";
         }
       });
       this.squash.v = -2.5;
@@ -539,15 +555,14 @@
         }
       }
 
-      /* 眼层：眼球跟着视线方向在眼眶里移动（只有带眼层的表情有）
-         高光点与精灵同步位移，保证「光」始终落在眼球上 */
+      /* 眼层：整个眼球组（精灵 + 明暗 + 高光）跟着视线在眼眶里移动，
+         三者共用同一个 transform，所以「光」和球面明暗始终贴在眼球上 */
       const lay = def.eyeLayer;
       if (lay) {
         const mx = lay.max == null ? 6.5 : lay.max;
         const my = lay.maxY == null ? mx * 0.7 : lay.maxY;
-        const shift = `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
-        this._front.sprite.style.transform = shift;
-        this._front.glint.style.transform = shift;
+        this._front.eye.style.transform =
+          `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
       }
 
       /* 表情切换挤压弹簧 */

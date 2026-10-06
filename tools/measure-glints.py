@@ -5,8 +5,9 @@ Dobby Emo · 眼精灵高光定位
 从每个可动眼精灵（assets/<skin>/<id>-eyes.webp）量出眼睛位置，并直接算出
 emotions.js 里 eyeLayer.glint 需要的补光锚点：
 
-  glint: [ {x, y, w, hi}, ... ]   每只眼一条，相对精灵框的百分比
-    x/y = 高光点中心（不是眼框左上角），w = 点宽，hi=1 表示素材已自带高光、不补
+  glint: [ {x, y, w, kx, ky, kw, hi}, ... ]   每只眼一条，相对精灵框的百分比
+    x/y/w = 主光点（中心 + 宽），hi=1 表示素材已自带高光、整只眼不补
+    kx/ky/kw = 副光点（右下角那粒冷调反射光），kw=0 表示这只眼不画
 
 规则（每只眼各算各的，胶囊眼和弯月眼都成立）：
   1. 落点 = 该眼自己包围盒的左上 (32% 宽, 24% 高) —— 不能照搬另一只眼的坐标，
@@ -35,8 +36,10 @@ HOLE_MIN = 250        # 「孔洞」面积下限：眼睛里的孔 = 素材自�
                       # 露出的正是补丁的浅色，等于已经有一处高光
 # 高光落点规则
 GX_RATIO, GY_RATIO = 0.32, 0.24   # 落点 = 每只眼自己包围盒的左上 (32%, 24%)
-W_RATIO = 0.34                    # 点宽上限 = 眼宽 × 0.34
+W_RATIO = 0.30                    # 主光点宽 = 眼宽 × 0.30
 CLEAR_K = 1.9                     # 点宽上限 = 到边缘距离 × 1.9（细眼时按这个收）
+KX_RATIO, KY_RATIO = 0.68, 0.62   # 副光（kicker）落点：该眼右下 (68%, 62%)
+KW_RATIO = 0.19                   # 副光点宽 = 眼宽 × 0.19
 
 
 def analyze(path):
@@ -86,21 +89,36 @@ def analyze(path):
         glx, gly = GX_RATIO * w, GY_RATIO * h        # 局部坐标（相对眼框）
         gx, gy = x0 + glx, y0 + gly
         dist = ndi.distance_transform_edt(m)         # 局部：到眼边界的距离（像素）
-        pxc = int(min(max(glx, 0), w - 1))
-        pyc = int(min(max(gly, 0), h - 1))
-        clear = float(dist[pyc, pxc]) if m[pyc, pxc] else 0.0
-        # 点宽：常规取眼宽的 1/3；细眼（弯月形）按到边缘的距离收，避免溢出到脸上
+
+        def clearance(lx, ly):
+            pxc = int(min(max(lx, 0), w - 1))
+            pyc = int(min(max(ly, 0), h - 1))
+            return float(dist[pyc, pxc]) if m[pyc, pxc] else 0.0
+
+        clear = clearance(glx, gly)
+        # 主光点宽：常规取眼宽的 1/3；细眼（弯月形）按到边缘的距离收，避免溢出到脸上
         dot_w = min(W_RATIO * w, CLEAR_K * clear) if clear > 0 else W_RATIO * w
+
+        # 副光（kicker）：右下角一小粒冷调反射光，让眼面读成球而不是平面。
+        # 位置同样按该眼自己的包围盒取，细到处放不下就置 0 不画。
+        klx, kly = KX_RATIO * w, KY_RATIO * h
+        kclear = clearance(klx, kly)
+        kick_w = min(KW_RATIO * w, CLEAR_K * 0.9 * kclear) if kclear > 1 else 0.0
 
         out.append({
             "bbox": bbox,
             "hi": hi,
             "holePx": hole_px,
-            "dot": {                            # 锚点：点中心 + 点宽，相对精灵框
+            "dot": {                            # 主光：点中心 + 点宽，相对精灵框
                 "x": round(gx / W * 100, 1),
                 "y": round(gy / H * 100, 1),
                 "w": round(dot_w / W * 100, 1),
                 "hi": hi,
+            },
+            "kick": {                           # 副光（w=0 表示这只眼不画）
+                "x": round((x0 + klx) / W * 100, 1),
+                "y": round((y0 + kly) / H * 100, 1),
+                "w": round(kick_w / W * 100, 1),
             },
             "clearPx": round(clear, 1),
         })
@@ -123,9 +141,10 @@ def main():
                 continue
             result[skin][eid] = eyes
             desc = "  ".join(
-                "eye%d bbox(%.1f,%.1f,%.1f,%.1f) dot(%.1f,%.1f w%.1f) hi=%d(hole %dpx)" %
+                "eye%d bbox(%.1f,%.1f,%.1f,%.1f) dot(%.1f,%.1f w%.1f) kick(%.1f,%.1f w%.1f) hi=%d" %
                 (i, e["bbox"]["x"], e["bbox"]["y"], e["bbox"]["w"], e["bbox"]["h"],
-                 e["dot"]["x"], e["dot"]["y"], e["dot"]["w"], e["hi"], e["holePx"])
+                 e["dot"]["x"], e["dot"]["y"], e["dot"]["w"],
+                 e["kick"]["x"], e["kick"]["y"], e["kick"]["w"], e["hi"])
                 for i, e in enumerate(eyes))
             print("  [ok] %s/%s  %s" % (skin, eid, desc))
 
@@ -135,8 +154,10 @@ def main():
     print("wrote", out)
     print("\n可直接粘贴进 emotions.js 的锚点（运行时两皮肤共用一套，取 sw）：")
     for eid, eyes in result["sw"].items():
-        items = ", ".join("{ x: %.1f, y: %.1f, w: %.1f, hi: %d }" %
-                          (e["dot"]["x"], e["dot"]["y"], e["dot"]["w"], e["dot"]["hi"]) for e in eyes)
+        items = ", ".join("{ x: %.1f, y: %.1f, w: %.1f, kx: %.1f, ky: %.1f, kw: %.1f, hi: %d }" %
+                          (e["dot"]["x"], e["dot"]["y"], e["dot"]["w"],
+                           e["kick"]["x"], e["kick"]["y"], e["kick"]["w"], e["dot"]["hi"])
+                          for e in eyes)
         print('  "%s": [%s],' % (eid, items))
 
 
