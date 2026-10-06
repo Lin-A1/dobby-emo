@@ -74,6 +74,16 @@
     return [sx / n, sy / n];
   }
 
+  /* 深拷贝一条眼环的 48 个点。
+     必须深拷：插值时是就地累加（cur[i][0] += ...），如果只是浅拷贝，
+     改的就是 EB_EYES 里的原始点 —— 每变一次形就把源数据本身改掉一点，
+     几个表情轮下来，0 号环被写成了一个四不像，所有用它的表情都变形 */
+  function cloneRing(ring) {
+    var out = new Array(ring.length);
+    for (var i = 0; i < ring.length; i++) out[i] = [ring[i][0], ring[i][1]];
+    return out;
+  }
+
   function ringPath(ring) {
     var d = "";
     for (var i = 0; i < ring.length; i++) {
@@ -98,7 +108,7 @@
     this.pool = [0];
     this.poolIdx = 0;
     this.poolMs = 0;
-    this.cur = [EB_EYES[0][0].slice(), EB_EYES[0][1].slice()];
+    this.cur = [cloneRing(EB_EYES[0][0]), cloneRing(EB_EYES[0][1])];
     this.pose = { open: 1, openR: 1, scaleY: 1, lookX: 0, lookY: 0, color: "#1A1A1A" };
     /* 环自带偏移的采纳比例：0 = 完全居中（只要形状），1 = 全用（保留「瞟向哪边」）。
        这张脸的眼睛下方就是嘴，纵向必须收着用，否则眼睛会压到嘴上 */

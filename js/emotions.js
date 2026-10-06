@@ -7,7 +7,10 @@
  *           注意：飘爱心 / 星光这类装饰粒子已整体移除——只保留表达「状态」的特效
  * img:      软件部固定形象烘焙表情（assets/sw/*.webp）
  * eyeRings: 用 emoball 的矢量眼环接管眼睛（几何见 js/eyering.js）。
- *           pool     眼环池：池内会按 poolMs 轮换，扫读类表情靠它「活」起来
+ *           pool     眼环池：池内会按 poolMs 轮换，扫读类表情靠它「活」起来。
+ *                    池内的环要挑「形状尺寸相近」的 —— 各环的位置与大小本来就
+ *                    不一样，混进一个特别大或特别偏的，轮换时眼睛就是在跳位
+ *                    和胀缩，不是「瞟一眼」
  *           poolMs   池内轮换间隔（ms）
  *           open     / openR  左右眼常驻开合度（1 = 睁满，0.08 ≈ 闭眼）
  *           scaleY   纵向整体缩放（配合 open 做眯眼）
@@ -49,7 +52,7 @@ var GLINT = {
 window.DOBBY_EMOTION_PRESET = [
   { id: "00", name: "待机",    en: "Idle",      group: "lifecycle", img: "assets/sw/00.webp",
     /* 平静：缓慢左右张望，偶尔眨一下眼 */
-    eyeRings: { pool: [0, 8, 0, 10], poolMs: 3400, blinkMs: 4200, look: 0.34,
+    eyeRings: { pool: [0, 6, 0, 24], poolMs: 3400, blinkMs: 4200, look: 0.34,
                 patch: "assets/sw/00-patch.webp", x: 29.107, y: 40.75, w: 35.646, h: 25.439 } },
   { id: "01", name: "睡觉",    en: "Sleep",     group: "lifecycle", img: "assets/sw/01.webp", effect: "sleep" },
 
@@ -76,7 +79,7 @@ window.DOBBY_EMOTION_PRESET = [
 
   { id: "30", name: "思考中",  en: "Thinking",  group: "agent", img: "assets/sw/30.webp", effect: "think",
     /* 扫读：视线在一组姿态间来回扫，就是「在检索」的样子 */
-    eyeRings: { pool: [15, 6, 24, 10], poolMs: 1600, blinkMs: 5200, look: 0.62,
+    eyeRings: { pool: [15, 6, 24], poolMs: 1600, blinkMs: 5200, look: 0.62,
                 patch: "assets/sw/30-patch.webp", x: 28.868, y: 38.038, w: 38.198, h: 23.525 } },
   { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "orbit" },
   { id: "32", name: "出错了",  en: "Error",     group: "agent", img: "assets/sw/32.webp", effect: "glitch" },
