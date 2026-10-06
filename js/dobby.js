@@ -152,14 +152,17 @@
       this._fxSize = { w: 0, h: 0 };
     }
 
-    /* 一帧脸：base 铺满，patch / sprite 按眼层百分比定位 */
+    /* 一帧脸：base 铺满，patch / sprite 按眼层百分比定位。
+       眼精灵之上叠一层高光：烘焙素材的眼睛是哑光的，少了镜面点就
+       读成色块而不是眼睛。高光与精灵同框同位置，跟着视线一起动。 */
     _buildFrame(cls) {
       const f = el("div", ("dobby-frame " + cls).trim(), this.faceEl);
       f.base = el("img", "f-base", f);
       f.patch = el("img", "f-patch", f);
       f.sprite = el("img", "f-sprite", f);
+      f.glint = el("i", "f-glint", f);
       f.base.draggable = f.patch.draggable = f.sprite.draggable = false;
-      f.patch.style.display = f.sprite.style.display = "none";
+      f.patch.style.display = f.sprite.style.display = f.glint.style.display = "none";
       return f;
     }
 
@@ -252,9 +255,10 @@
           next.sprite.src = lay.sprite;
           this._placeLayer(next.patch, lay);
           this._placeLayer(next.sprite, lay);
-          next.patch.style.display = next.sprite.style.display = "";
+          this._placeGlint(next.glint, lay);
+          next.patch.style.display = next.sprite.style.display = next.glint.style.display = "";
         } else {
-          next.patch.style.display = next.sprite.style.display = "none";
+          next.patch.style.display = next.sprite.style.display = next.glint.style.display = "none";
           next.sprite.style.transform = "";
         }
         this._front.classList.remove("show");
@@ -279,6 +283,30 @@
       node.style.top = lay.y + "%";
       node.style.width = lay.w + "%";
       node.style.height = lay.h + "%";
+    }
+
+    /* 高光层：沿用眼精灵的框，框内按 lay.glint 的每只眼锚点分布补光。
+       每条 glint = { x, y, w, hi }，全部相对精灵框：
+         x/y = 高光点中心位置（%），w = 点宽（%）
+       精灵框是扁的，CSS 里 width:% 按容器宽解析、height:% 按容器高解析，
+       故要让点保持正圆，高度百分比 = 宽度百分比 × (框宽/框高)。
+       hi:1 表示素材已自带高光（如 14 号惊讶），该眼不再叠加，避免双高光。 */
+    _placeGlint(node, lay) {
+      this._placeLayer(node, lay);
+      const g = lay.glint;
+      if (!g || !g.length) { node.style.display = "none"; return; }
+      /* 框宽高比：lay.w/lay.h 是同一正方形底图上的百分比，比值即像素比 */
+      const ar = (lay.w && lay.h) ? lay.w / lay.h : 1.4;
+      node.innerHTML = "";
+      node.style.display = "";
+      g.forEach((e) => {
+        const dot = el("span", "g-dot" + (e.hi ? " g-has" : ""));
+        dot.style.width = e.w + "%";
+        dot.style.height = (e.w * ar) + "%";
+        dot.style.left = e.x + "%";
+        dot.style.top = e.y + "%";
+        node.appendChild(dot);
+      });
     }
 
     /* ---------------- 常驻特效层 ---------------- */
@@ -354,9 +382,10 @@
           f.sprite.src = lay.sprite;
           this._placeLayer(f.patch, lay);
           this._placeLayer(f.sprite, lay);
-          f.patch.style.display = f.sprite.style.display = "";
+          this._placeGlint(f.glint, lay);
+          f.patch.style.display = f.sprite.style.display = f.glint.style.display = "";
         } else {
-          f.patch.style.display = f.sprite.style.display = "none";
+          f.patch.style.display = f.sprite.style.display = f.glint.style.display = "none";
         }
       });
       this.squash.v = -2.5;
@@ -510,13 +539,15 @@
         }
       }
 
-      /* 眼层：眼球跟着视线方向在眼眶里移动（只有带眼层的表情有） */
+      /* 眼层：眼球跟着视线方向在眼眶里移动（只有带眼层的表情有）
+         高光点与精灵同步位移，保证「光」始终落在眼球上 */
       const lay = def.eyeLayer;
       if (lay) {
         const mx = lay.max == null ? 6.5 : lay.max;
         const my = lay.maxY == null ? mx * 0.7 : lay.maxY;
-        this._front.sprite.style.transform =
-          `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
+        const shift = `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
+        this._front.sprite.style.transform = shift;
+        this._front.glint.style.transform = shift;
       }
 
       /* 表情切换挤压弹簧 */

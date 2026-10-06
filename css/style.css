@@ -194,6 +194,37 @@ body {
 .dobby-frame img.f-patch,
 .dobby-frame img.f-sprite { display: block; }
 .dobby-frame img.f-sprite { will-change: transform; }
+
+/* ---- 眼睛高光层 ----
+   烘焙素材的眼睛是哑光的（见 assets/sw/00-eyes.webp），少了镜面点就
+   读成色块而不是眼睛。这层按 emotions.js 里每只眼的锚点补光：
+   一个偏左上的主光点 + 一点右下冷调副光，让眼面读成有弧度的球面。
+   锚点由 JS 写入，随精灵框等比缩放；素材已自带高光的眼（hi:1）不补。 */
+.dobby-frame .f-glint {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform;
+}
+/* 尺寸与位置由 JS 按 emotions.js 的锚点写入（宽 = 锚点 w%，高按框宽高比） */
+.dobby-frame .f-glint .g-dot {
+  position: absolute;
+  border-radius: 50%;
+  /* 主光：偏左上，柔边 */
+  background:
+    radial-gradient(circle at 40% 36%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.62) 46%,
+      rgba(255, 255, 255, 0) 74%),
+    /* 副光：右下冷调，压住眼面下缘 */
+    radial-gradient(circle at 74% 78%,
+      rgba(186, 212, 255, 0.34) 0%,
+      rgba(186, 212, 255, 0) 68%);
+  filter: blur(0.5px);
+  /* 锚点即高光点的中心位置，故自身回移半个身位 */
+  transform: translate(-50%, -50%);
+}
+/* 素材已自带高光的眼：不叠加，避免双高光显得脏 */
+.dobby-frame .f-glint .g-dot.g-has { display: none; }
 .dobby-shadow {
   position: absolute; left: 50%; top: 50%;
   width: 210px; height: 40px;

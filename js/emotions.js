@@ -8,13 +8,32 @@
  * img:      软件部固定形象烘焙表情（assets/sw/*.webp）
  * eyeLayer: 可动眼层 —— patch 是「抹掉烘焙眼睛」的脸部补丁，sprite 是眼球精灵，
  *           x/y/w/h 为图像坐标百分比，max 为 300px 尺寸下眼球最大位移（px）。
+ *           glint 是每只眼的补光锚点（相对精灵框的百分比，见下）；
  *           带眼层的表情会真的跟着鼠标 / 手指转眼球，其余表情只做头部倾斜。
  *           素材由 tools/make-eyes.py 生成（Laplace 修补 + 精灵抽取）。
+ * glint:    烘焙素材的眼睛是哑光的，缺镜面点就读成色块而不是眼睛。
+ *           每条 = 一只眼的补光锚点（相对眼精灵框的百分比）+ hi 标记：
+ *             hi: 0 → 由 CSS 补一层高光（主光偏左上 + 副光右下）
+ *             hi: 1 → 素材已自带高光（如 14 号），不再叠加，避免双高光
+ *           数值由 tools/measure-glints.py 实测得出：每只眼取自己包围盒的
+ *           左上 (32%, 24%)，点宽 = min(眼宽×0.34, 到眼缘距离×1.9)，
+ *           所以弯月形（眨眼）这种细眼的点会自动收小。换素材后重跑脚本即可。
  */
+/* 每只眼的补光锚点：相对眼精灵框的百分比，顺序 = 左眼、右眼。
+   x/y 是高光点的中心（不是眼框左上角），w 是点宽。 */
+var GLINT = {
+  "00": [{ x: 21.9, y: 33.9, w: 6.8, hi: 0 }, { x: 70.2, y: 39.4, w: 7.3, hi: 0 }],
+  "14": [{ x: 20.6, y: 33.3, w: 8.5, hi: 1 }, { x: 69.1, y: 39.7, w: 9.2, hi: 1 }],
+  "18": [{ x: 20.9, y: 34.4, w: 7.4, hi: 0 }, { x: 69.8, y: 42.2, w: 8.2, hi: 0 }],
+  "20": [{ x: 18.9, y: 36.0, w: 5.9, hi: 0 }, { x: 67.4, y: 49.7, w: 4.8, hi: 0 }],
+  "30": [{ x: 20.6, y: 36.2, w: 6.6, hi: 0 }, { x: 70.2, y: 45.4, w: 6.2, hi: 0 }]
+};
+
 window.DOBBY_EMOTION_PRESET = [
   { id: "00", name: "待机",    en: "Idle",      group: "lifecycle", img: "assets/sw/00.webp",
     eyeLayer: { patch: "assets/sw/00-patch.webp", sprite: "assets/sw/00-eyes.webp",
-                x: 29.107, y: 40.75, w: 35.646, h: 25.439, max: 9, maxY: 6.5 } },
+                x: 29.107, y: 40.75, w: 35.646, h: 25.439, max: 7, maxY: 5,
+                glint: GLINT["00"] } },
   { id: "01", name: "睡觉",    en: "Sleep",     group: "lifecycle", img: "assets/sw/01.webp", effect: "sleep" },
 
   { id: "10", name: "开心",    en: "Happy",     group: "emotion", img: "assets/sw/10.webp" },
@@ -23,21 +42,25 @@ window.DOBBY_EMOTION_PRESET = [
   { id: "13", name: "兴奋",    en: "Excited",   group: "emotion", img: "assets/sw/13.webp", effect: "sparkle" },
   { id: "14", name: "惊讶",    en: "Surprised", group: "emotion", img: "assets/sw/14.webp",
     eyeLayer: { patch: "assets/sw/14-patch.webp", sprite: "assets/sw/14-eyes.webp",
-                x: 26.077, y: 38.995, w: 43.541, h: 25.997, max: 9, maxY: 7 } },
+                x: 26.077, y: 38.995, w: 43.541, h: 25.997, max: 7, maxY: 5.5,
+                glint: GLINT["14"] } },
   { id: "15", name: "生气",    en: "Angry",     group: "emotion", img: "assets/sw/15.webp", effect: "steam" },
   { id: "16", name: "难过",    en: "Sad",       group: "emotion", img: "assets/sw/16.webp" },
   { id: "17", name: "哭泣",    en: "Cry",       group: "emotion", img: "assets/sw/17.webp" },
   { id: "18", name: "害羞",    en: "Shy",       group: "emotion", img: "assets/sw/18.webp",
     eyeLayer: { patch: "assets/sw/18-patch.webp", sprite: "assets/sw/18-eyes.webp",
-                x: 27.671, y: 41.866, w: 39.314, h: 23.206, max: 8, maxY: 6 } },
+                x: 27.671, y: 41.866, w: 39.314, h: 23.206, max: 6.5, maxY: 4.8,
+                glint: GLINT["18"] } },
   { id: "19", name: "耍酷",    en: "Cool",      group: "emotion", img: "assets/sw/19.webp" },
   { id: "20", name: "眨眼",    en: "Wink",      group: "emotion", img: "assets/sw/20.webp",
     eyeLayer: { patch: "assets/sw/20-patch.webp", sprite: "assets/sw/20-eyes.webp",
-                x: 29.187, y: 39.952, w: 41.069, h: 24.003, max: 9, maxY: 6.5 } },
+                x: 29.187, y: 39.952, w: 41.069, h: 24.003, max: 7, maxY: 5,
+                glint: GLINT["20"] } },
 
   { id: "30", name: "思考中",  en: "Thinking",  group: "agent", img: "assets/sw/30.webp", effect: "think",
     eyeLayer: { patch: "assets/sw/30-patch.webp", sprite: "assets/sw/30-eyes.webp",
-                x: 28.868, y: 38.038, w: 38.198, h: 23.525, max: 8.5, maxY: 6 } },
+                x: 28.868, y: 38.038, w: 38.198, h: 23.525, max: 6.5, maxY: 4.8,
+                glint: GLINT["30"] } },
   { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "orbit" },
   { id: "32", name: "出错了",  en: "Error",     group: "agent", img: "assets/sw/32.webp", effect: "glitch" },
   { id: "33", name: "完成",    en: "Success",   group: "agent", img: "assets/sw/33.webp", effect: "sparkle" },
