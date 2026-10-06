@@ -23,7 +23,8 @@
       img: def.img || "",
       bob: typeof def.bob === "number" ? def.bob : 1,   // 漂浮幅度系数
       noBlink: !!def.noBlink,
-      effect: def.effect || "none",                     // 常驻光环特效
+      effect: def.effect || "none",                     // 常驻特效
+      eyeRings: def.eyeRings || null,                   // emoball 式矢量眼环配置
       eyeLayer: def.eyeLayer || null,                   // 可动眼层（补丁 + 眼睛精灵）
     };
   }
@@ -68,7 +69,8 @@
     constructor(mount, opts = {}) {
       this.mount = mount;
       this.opts = Object.assign(
-        { size: 320, gaze: true, gazeRange: 460, blink: true, autosleep: false, autosleepDelay: 20000 },
+        { size: 320, gaze: true, gazeRange: 460, blink: true, autosleep: false,
+          autosleepDelay: 20000, eyeColor: "#1c1a23" },
         opts
       );
       this.onChange = null;   // (def, meta) => {}
@@ -126,6 +128,18 @@
       this.frameA = this._buildFrame("show");
       this.frameB = this._buildFrame("");
       this._front = this.frameA;
+
+      /* 眼环层（emoball 式矢量眼）：跟着脸一起呼吸/倾斜，但不参与表情帧的
+         交叉淡入淡出——眼睛要的是形变，不是换图。用它的表情会把烘焙眼睛
+         藏在补丁下，再由这一层接管。 */
+      this.ringW = el("div", "dobby-rings", this.faceEl);
+      const rsvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      rsvg.setAttribute("viewBox", "0 0 300 300");
+      this.ringW.appendChild(rsvg);
+      this.rings = (typeof global.DobbyEyeRings === "function")
+        ? new global.DobbyEyeRings(rsvg, this.opts.eyeGeo)
+        : null;
+      if (this.rings && this.opts.eyeColor) this.rings.pose.color = this.opts.eyeColor;
 
       /* 加载门控：首图就绪前隐藏整个角色（避免光环/气泡先飘出来） */
       root.classList.add("loading");
@@ -241,27 +255,13 @@
       this.sticky = meta.sticky !== false;
       this.root.classList.toggle("sleeping", def.id === "01");
       this._renderAura(def);
+      this._applyRings(def);
 
       if (changed) {
         // 变形过渡：旧帧淡出，新帧弹性弹入（带回弹过冲）
         const next = this._front === this.frameA ? this.frameB : this.frameA;
-        const lay = def.eyeLayer;
         next.base.src = def.img;
-        if (lay && lay.patch && lay.sprite) {
-          next.patch.src = lay.patch;
-          next.sprite.src = lay.sprite;
-          this._placeLayer(next.patch, lay);
-          this._placeLayer(next.eye, lay);
-          /* 用精灵自己的 alpha 当遮罩，球面明暗才会严格落在眼形里 */
-          const m = 'url("' + lay.sprite + '")';
-          next.shade.style.webkitMaskImage = m;
-          next.shade.style.maskImage = m;
-          this._placeGlint(next.glint, lay);
-          next.patch.style.display = next.eye.style.display = "";
-        } else {
-          next.patch.style.display = next.eye.style.display = "none";
-          next.eye.style.transform = "";
-        }
+        this._dressEyes(next, def);
         this._front.classList.remove("show");
         next.classList.add("show");
         next.classList.remove("pop");
@@ -276,6 +276,53 @@
       if (meta.tips != null) this._showTips(meta.tips);
       if (this.onChange) this.onChange(def, meta);
       return true;
+    }
+
+    /* 给一帧脸穿上眼睛：
+         eyeRings → 只铺「无眼补丁」，眼睛交给上层的矢量眼环
+         eyeLayer → 铺补丁 + 精灵眼（附球面明暗与高光）
+         两者都没有 → 没有眼层，用素材自带的烘焙眼睛
+       补丁是两边共用的：它把烘焙眼睛抹掉，否则新眼睛会叠在旧眼睛上 */
+    _dressEyes(f, def) {
+      const ring = def.eyeRings;
+      const lay = def.eyeLayer;
+      const patchCfg = ring || lay;
+      if (patchCfg && patchCfg.patch) {
+        f.patch.src = patchCfg.patch;
+        this._placeLayer(f.patch, patchCfg);
+        f.patch.style.display = "";
+      } else {
+        f.patch.style.display = "none";
+      }
+      if (lay && lay.patch && lay.sprite) {
+        f.sprite.src = lay.sprite;
+        this._placeLayer(f.eye, lay);
+        /* 用精灵自己的 alpha 当遮罩，球面明暗才会严格落在眼形里 */
+        const m = 'url("' + lay.sprite + '")';
+        f.shade.style.webkitMaskImage = m;
+        f.shade.style.maskImage = m;
+        this._placeGlint(f.glint, lay);
+        f.eye.style.display = "";
+      } else {
+        f.eye.style.display = "none";
+        f.eye.style.transform = "";
+      }
+    }
+
+    /* 眼环：把表情配置下发给眼环渲染器（池内轮换 + 开合 + 眨眼） */
+    _applyRings(def) {
+      const cfg = def && def.eyeRings;
+      if (!this.rings) return;
+      if (!cfg) { this.ringW.style.display = "none"; return; }
+      this.ringW.style.display = "";
+      this.rings.setPool(cfg.pool, {
+        poolMs: cfg.poolMs,
+        open: cfg.open,
+        openR: cfg.openR,
+        scaleY: cfg.scaleY,
+        blinkMs: cfg.blinkMs === null ? null : cfg.blinkMs,
+        color: cfg.color || this.opts.eyeColor,
+      });
     }
 
     /* 眼层定位：百分比 = 图像坐标系（底图 object-fit: contain 且与容器同为正方形） */
@@ -370,22 +417,9 @@
     refreshSkin() {
       if (!this.emotion) return;
       const def = this.emotion;
-      const lay = def.eyeLayer;
       [this.frameA, this.frameB].forEach((f) => {
         f.base.src = def.img;
-        if (lay && lay.patch && lay.sprite) {
-          f.patch.src = lay.patch;
-          f.sprite.src = lay.sprite;
-          this._placeLayer(f.patch, lay);
-          this._placeLayer(f.eye, lay);
-          const m = 'url("' + lay.sprite + '")';
-          f.shade.style.webkitMaskImage = m;
-          f.shade.style.maskImage = m;
-          this._placeGlint(f.glint, lay);
-          f.patch.style.display = f.eye.style.display = "";
-        } else {
-          f.patch.style.display = f.eye.style.display = "none";
-        }
+        this._dressEyes(f, def);
       });
       this.squash.v = -2.5;
     }
@@ -495,9 +529,11 @@
       const sway = Math.sin(t * 1.05) * (sleeping ? 0.8 : 2);
       const breath = 1 + Math.sin(t * 1.35) * 0.01;   // 呼吸
 
-      /* 眨眼（睡觉不眨） */
+      /* 眨眼（睡觉不眨）。用眼环的表情由眼环自己眨眼（眼睑是真闭合），
+         整张脸不再跟着压扁 */
       let blinkScale = 1;
-      if (this.opts.blink && !def.noBlink && !sleeping) {
+      const ringMode = !!(def.eyeRings && this.rings);
+      if (this.opts.blink && !ringMode && !def.noBlink && !sleeping) {
         this._blinkTimer -= dt;
         if (this._blinkTimer <= 0) {
           this.blink = 0.0001;
@@ -515,9 +551,12 @@
         }
       }
 
+      /* 眼环模式：矢量眼自己完成投影/形变/眨眼，只需要把视线交给它 */
+      if (ringMode) this.rings.tick(dt, this.gaze);
+
       /* 眼层：整个眼球组（精灵 + 明暗 + 高光）跟着视线在眼眶里移动，
          三者共用同一个 transform，所以「光」和球面明暗始终贴在眼球上 */
-      const lay = def.eyeLayer;
+      const lay = ringMode ? null : def.eyeLayer;
       if (lay) {
         const mx = lay.max == null ? 6.5 : lay.max;
         const my = lay.maxY == null ? mx * 0.7 : lay.maxY;

@@ -195,6 +195,17 @@ body {
 .dobby-frame img.f-sprite { display: block; }
 .dobby-frame img.f-sprite { will-change: transform; }
 
+/* ---- 眼环层（emoball 式矢量眼）----
+   用眼环几何（见 js/eyering.js）在脸盘上实时画眼睛：形状与位置都烘焙在
+   25 组轮廓里，逐点插值即可在姿态间连续变形，眨眼是真的把眼睛闭成一条线。
+   放在两帧脸之上、faceEl 之内：跟着头一起呼吸倾斜，但不参与表情帧的交叉
+   淡入淡出（眼睛要形变，不要换图）。 */
+.dobby-rings {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  pointer-events: none;
+}
+.dobby-rings svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
 /* ---- 眼球组：精灵 + 一点球面明暗 + 一颗收得住的高光 ----
    参考 emoball：那边的眼睛干脆就是纯色 `#1A1A1A` 的实心形状，没有高光也
    没有明暗，情绪全靠形状变化。我们这里是 3D 渲染形象，眼睛完全不加东西会

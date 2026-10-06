@@ -694,17 +694,26 @@
   const skinToggle = document.getElementById("skinToggle");
   let skin = localStorage.getItem("dobby-skin") === "light" ? "light" : "dark";
 
+  /* 两套皮肤的瞳色（由素材实测主色得出），眼环要用同一支墨色 */
+  const EYE_INK = { dark: "#1c1a23", light: "#57443e" };
+
   function applySkin(s, silent) {
     skin = s;
     localStorage.setItem("dobby-skin", s);
-    // 注册表内就地替换图片路径（底图 + 可动眼层）
+    dobby.opts.eyeColor = EYE_INK[s] || EYE_INK.dark;
+    // 注册表内就地替换图片路径（底图 + 无眼补丁 + 精灵眼）
     DobbyEmotions.list().forEach((def) => {
       def.img = `${SKINS[s]}/${def.id}.webp`;
       const im = new Image(); im.src = def.img;   // 预载
+      /* 补丁是「按皮肤生成的」：白皮肤的补丁只能配白皮肤的底图，
+         漏掉 eyeRings 这条路径会让白皮肤贴上黑皮肤的补丁，脸上一块色差 */
+      [def.eyeLayer, def.eyeRings].forEach((cfg) => {
+        if (!cfg || !cfg.patch) return;
+        cfg.patch = `${SKINS[s]}/${def.id}-patch.webp`;
+        const p = new Image(); p.src = cfg.patch;
+      });
       if (def.eyeLayer) {
-        def.eyeLayer.patch = `${SKINS[s]}/${def.id}-patch.webp`;
         def.eyeLayer.sprite = `${SKINS[s]}/${def.id}-eyes.webp`;
-        const p = new Image(); p.src = def.eyeLayer.patch;
         const q = new Image(); q.src = def.eyeLayer.sprite;
       }
     });
@@ -713,6 +722,7 @@
     renderWall();
     if (dobby.emotion) {
       dobby.refreshSkin();
+      dobby._applyRings(dobby.emotion);
       brandLogo.src = dobby.emotion.img;
     }
     if (!silent) log(`✓ 已切换为${s === "dark" ? "黑色" : "白色"}形象`, "ok");

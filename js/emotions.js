@@ -6,6 +6,17 @@
  *           | glitch 故障抖动 | steam 冒蒸汽 | sleep 月亮）
  *           注意：飘爱心 / 星光这类装饰粒子已整体移除——只保留表达「状态」的特效
  * img:      软件部固定形象烘焙表情（assets/sw/*.webp）
+ * eyeRings: 用 emoball 的矢量眼环接管眼睛（几何见 js/eyering.js）。
+ *           pool     眼环池：池内会按 poolMs 轮换，扫读类表情靠它「活」起来
+ *           poolMs   池内轮换间隔（ms）
+ *           open     / openR  左右眼常驻开合度（1 = 睁满，0.08 ≈ 闭眼）
+ *           scaleY   纵向整体缩放（配合 open 做眯眼）
+ *           blinkMs  眨眼间隔（null = 不眨眼）
+ *           look     采纳「环自带偏移」的比例：0 = 眼睛居中（只取形状），
+ *                    1 = 完全按数据（保留瞟向哪边）。眼睛下方就是嘴，
+ *                    所以纵向只用一点点，横向按表情需要给
+ *           速查：0/8 平静 · 2/11/17/19 笑眼 · 3/21 圆睁 · 13/22/4 闭眼
+ *                14/5/23 斜眼 · 7/16 怒目 · 15/9/20/12/18 扫读 · 10/1 聆听 · 24 羞怯
  * eyeLayer: 可动眼层 —— patch 是「抹掉烘焙眼睛」的脸部补丁，sprite 是眼球精灵，
  *           x/y/w/h 为图像坐标百分比，max 为 300px 尺寸下眼球最大位移（px）。
  *           glint 是每只眼的补光锚点（相对精灵框的百分比，见下）；
@@ -37,9 +48,9 @@ var GLINT = {
 
 window.DOBBY_EMOTION_PRESET = [
   { id: "00", name: "待机",    en: "Idle",      group: "lifecycle", img: "assets/sw/00.webp",
-    eyeLayer: { patch: "assets/sw/00-patch.webp", sprite: "assets/sw/00-eyes.webp",
-                x: 29.107, y: 40.75, w: 35.646, h: 25.439, max: 7, maxY: 5,
-                glint: GLINT["00"] } },
+    /* 平静：缓慢左右张望，偶尔眨一下眼 */
+    eyeRings: { pool: [0, 8, 0, 10], poolMs: 3400, blinkMs: 4200, look: 0.34,
+                patch: "assets/sw/00-patch.webp", x: 29.107, y: 40.75, w: 35.646, h: 25.439 } },
   { id: "01", name: "睡觉",    en: "Sleep",     group: "lifecycle", img: "assets/sw/01.webp", effect: "sleep" },
 
   { id: "10", name: "开心",    en: "Happy",     group: "emotion", img: "assets/sw/10.webp" },
@@ -47,26 +58,26 @@ window.DOBBY_EMOTION_PRESET = [
   { id: "12", name: "花痴",    en: "Love",      group: "emotion", img: "assets/sw/12.webp" },
   { id: "13", name: "兴奋",    en: "Excited",   group: "emotion", img: "assets/sw/13.webp" },
   { id: "14", name: "惊讶",    en: "Surprised", group: "emotion", img: "assets/sw/14.webp",
-    eyeLayer: { patch: "assets/sw/14-patch.webp", sprite: "assets/sw/14-eyes.webp",
-                x: 26.077, y: 38.995, w: 43.541, h: 25.997, max: 7, maxY: 5.5,
-                glint: GLINT["14"] } },
+    /* 圆睁：睁到最大、不眨眼（惊讶时眼睛是定住的） */
+    eyeRings: { pool: [3], poolMs: 1e9, open: 1.08, blinkMs: null, look: 0,
+                patch: "assets/sw/14-patch.webp", x: 26.077, y: 38.995, w: 43.541, h: 25.997 } },
   { id: "15", name: "生气",    en: "Angry",     group: "emotion", img: "assets/sw/15.webp", effect: "steam" },
   { id: "16", name: "难过",    en: "Sad",       group: "emotion", img: "assets/sw/16.webp" },
   { id: "17", name: "哭泣",    en: "Cry",       group: "emotion", img: "assets/sw/17.webp" },
   { id: "18", name: "害羞",    en: "Shy",       group: "emotion", img: "assets/sw/18.webp",
-    eyeLayer: { patch: "assets/sw/18-patch.webp", sprite: "assets/sw/18-eyes.webp",
-                x: 27.671, y: 41.866, w: 39.314, h: 23.206, max: 6.5, maxY: 4.8,
-                glint: GLINT["18"] } },
+    /* 羞怯：眼环 24 偏小偏内，配合脸上下落的视线 */
+    eyeRings: { pool: [24, 6], poolMs: 5200, open: 0.92, blinkMs: 3600, look: 0.55,
+                patch: "assets/sw/18-patch.webp", x: 27.671, y: 41.866, w: 39.314, h: 23.206 } },
   { id: "19", name: "耍酷",    en: "Cool",      group: "emotion", img: "assets/sw/19.webp" },
   { id: "20", name: "眨眼",    en: "Wink",      group: "emotion", img: "assets/sw/20.webp",
-    eyeLayer: { patch: "assets/sw/20-patch.webp", sprite: "assets/sw/20-eyes.webp",
-                x: 29.187, y: 39.952, w: 41.069, h: 24.003, max: 7, maxY: 5,
-                glint: GLINT["20"] } },
+    /* 单眼闭 = 只把右眼开合度压下去，这是矢量眼才做得到的事 */
+    eyeRings: { pool: [2], poolMs: 1e9, open: 1, openR: 0.06, blinkMs: null, look: 0,
+                patch: "assets/sw/20-patch.webp", x: 29.187, y: 39.952, w: 41.069, h: 24.003 } },
 
   { id: "30", name: "思考中",  en: "Thinking",  group: "agent", img: "assets/sw/30.webp", effect: "think",
-    eyeLayer: { patch: "assets/sw/30-patch.webp", sprite: "assets/sw/30-eyes.webp",
-                x: 28.868, y: 38.038, w: 38.198, h: 23.525, max: 6.5, maxY: 4.8,
-                glint: GLINT["30"] } },
+    /* 扫读：视线在一组姿态间来回扫，就是「在检索」的样子 */
+    eyeRings: { pool: [15, 6, 24, 10], poolMs: 1600, blinkMs: 5200, look: 0.62,
+                patch: "assets/sw/30-patch.webp", x: 28.868, y: 38.038, w: 38.198, h: 23.525 } },
   { id: "31", name: "搜索中",  en: "Searching", group: "agent", img: "assets/sw/31.webp", effect: "orbit" },
   { id: "32", name: "出错了",  en: "Error",     group: "agent", img: "assets/sw/32.webp", effect: "glitch" },
   { id: "33", name: "完成",    en: "Success",   group: "agent", img: "assets/sw/33.webp" },

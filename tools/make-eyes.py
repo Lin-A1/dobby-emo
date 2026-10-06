@@ -21,7 +21,10 @@ SKINS = ["sw", "sw-white"]
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 EYE_DARK = 110        # 眼睛亮度阈值
-DILATE = 44           # 补丁扩边（图像像素；渲染 300px 时约等于 10.5px 位移余量）
+FILL_DILATE = 9       # 修补区只比眼形大一点：够盖住眼睛和描边即可。
+                      # 早先这里直接用了 SPRITE_DILATE，把眼球周围 44px 的
+                      # 脸颊也一并「抹平」了，补丁贴到脸上就是一块方形色块
+SPRITE_DILATE = 44    # 精灵框扩边（给眼球位移留的余量，只影响裁切，不参与修补）
 MARGIN = 26           # 裁切框外扩
 
 
@@ -122,22 +125,23 @@ def build(skin, eid):
     if len(comps) < 2:
         return None, "只识别到 %d 只眼睛" % len(comps)
 
-    # 补丁区 = 眼睛 mask 膨胀（给眼球留位移余量），羽化后合成
-    patch_mask = ndi.binary_dilation(mask, iterations=DILATE)
-    filled, res = laplace_fill(rgb.astype(float), patch_mask)
-    feather = ndi.gaussian_filter(patch_mask.astype(float), 3.0)[..., None]
+    # 只把「眼睛 + 一圈描边」抹掉，其余原样保留——这样补丁贴回脸上时，
+    # 只有眼睛那一小块是重画的，脸颊的明暗过渡不会出现方形边界
+    hole = ndi.binary_dilation(mask, iterations=FILL_DILATE)
+    filled, res = laplace_fill(rgb.astype(float), hole)
+    feather = ndi.gaussian_filter(hole.astype(float), 2.4)[..., None]
     clean = rgb.astype(float) * (1 - feather) + filled * feather
 
     ys, xs = np.nonzero(mask)
-    x0 = max(0, xs.min() - MARGIN - DILATE)
-    x1 = min(CANVAS, xs.max() + MARGIN + DILATE)
-    y0 = max(0, ys.min() - MARGIN - DILATE)
-    y1 = min(CANVAS, ys.max() + MARGIN + DILATE)
+    x0 = max(0, xs.min() - MARGIN - SPRITE_DILATE)
+    x1 = min(CANVAS, xs.max() + MARGIN + SPRITE_DILATE)
+    y0 = max(0, ys.min() - MARGIN - SPRITE_DILATE)
+    y1 = min(CANVAS, ys.max() + MARGIN + SPRITE_DILATE)
 
     os.makedirs(os.path.join(ROOT, "assets", skin), exist_ok=True)
     patch = clean[y0:y1, x0:x1].astype(np.uint8)
     Image.fromarray(patch, "RGB").save(
-        os.path.join(ROOT, "assets", skin, eid + "-patch.webp"), "WEBP", quality=94, method=6)
+        os.path.join(ROOT, "assets", skin, eid + "-patch.webp"), "WEBP", quality=96, method=6)
 
     # 眼睛精灵：alpha 用 1px 膨胀 + 轻微羽化，避免描边发灰
     em = ndi.binary_dilation(mask, iterations=1).astype(float)
