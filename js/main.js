@@ -77,6 +77,7 @@
      放到文件末尾的「皮肤切换」那一段会踩到 let 的暂时性死区 ——
      渲染墙时读到未初始化的 skin，整个脚本就此中断 */
   const SKINS = { dark: "assets/sw", light: "assets/sw-white" };
+  const ASSET_V = window.DOBBY_ASSET_V || "1";   // 素材版本（见 emotions.js）
   let skin = localStorage.getItem("dobby-skin") === "light" ? "light" : "dark";
 
   const hr = hero.getBoundingClientRect();
@@ -244,7 +245,7 @@
   function wake(reason) {
     if (!sleeping || userState.id === "01") return false;
     sleeping = false;
-    react("11", { tips: reason, ttl: 1500, force: true });
+    react("13", { tips: reason, ttl: 1500, force: true });
     Bond.add(2);
     return true;
   }
@@ -278,10 +279,10 @@
       const near = nearStage(e.clientX, e.clientY);
 
       if (near && speed > 1.9 && cooldown("whip", 7000)) {
-        react(pick(["13", "11"]), { tips: pick(WHIP_TIPS), ttl: 1300 });
+        react(pick(["13", "14"]), { tips: pick(WHIP_TIPS), ttl: 1300 });
         Bond.add(2);
       } else if (near && d < 84 && cooldown("pet", 9000)) {
-        react("12", { tips: "♥", ttl: 1300 });
+        react("18", { tips: "♥", ttl: 1300 });
         Sound.squeak();
         Bond.add(6);
       } else if (near && d < 168 && cooldown("close", 14000)) {
@@ -300,7 +301,7 @@
     wake("诶，你摸我");
     holdTimer = setTimeout(() => {
       if (dobby.dragging && Math.hypot(dobby.pos.x, dobby.pos.y) < 8 && !sleeping && cooldown("hold", 8000)) {
-        react("12", { tips: "好舒服…", ttl: 1600, force: true });
+        react("18", { tips: "好舒服…", ttl: 1600, force: true });
         Sound.squeak();
         Bond.add(5);
       }
@@ -400,7 +401,7 @@
           now - lastPointer > 9000 && now - lastUserSet > 8000 &&
           dobby.emotion && dobby.emotion.id === userState.id &&
           userState.id !== "01") {
-        react(pick(["20", "31", "14"]), { ttl: 1400 });
+        react(pick(["31", "14", "13"]), { ttl: 1400 });
       }
       idleActs();
     }, 15000 + Math.random() * 12000);
@@ -449,7 +450,7 @@
 
   /* ---------------- 开场打招呼 ---------------- */
   setTimeout(() => {
-    react("11", { tips: "嗨，我是 Dobby —— 靠近我、拖着我来玩", ttl: 3600 });
+    react("13", { tips: "嗨，我是 Dobby —— 靠近我、拖着我来玩", ttl: 3600 });
   }, 700);
 
   /* ---------------- 喂食 ---------------- */
@@ -460,7 +461,7 @@
     setTimeout(() => (feedBtn.disabled = false), 15000);
     Sound.munch();
     Bond.add(10);
-    react("11", { tips: "好吃！还要～", ttl: 1500 });
+    react("10", { tips: "好吃！还要～", ttl: 1500 });
   });
 
   /* ============================================================
@@ -580,21 +581,21 @@
   const chatInput = document.getElementById("chatInput");
   const CHAT_RULES = [
     { re: /你好|嗨|哈喽|hello|hi/i, emo: "10", reply: "你好呀！今天过得怎么样？" },
-    { re: /你是谁|名字|介绍/i, emo: "19", reply: "我是 Dobby，你的桌面小助手～" },
-    { re: /喜欢|爱/i, emo: "12", reply: "我也最喜欢你了 ♥" },
+    { re: /你是谁|名字|介绍/i, emo: "10", reply: "我是 Dobby，你的桌面小助手～" },
+    { re: /喜欢|爱/i, emo: "18", reply: "我也最喜欢你了 ♥" },
     { re: /错|报错|bug|失败|不行/i, emo: "32", reply: "出错了？让我看看日志…啊，是这里！", intensity: "high" },
     { re: /谢谢|感谢|thx/i, emo: "18", reply: "嘿嘿，不客气～" },
     { re: /天气|下雨|晴天/i, emo: "30", reply: "让我想想…今天适合写代码！" },
     { re: /再见|拜拜|晚安/i, emo: "16", reply: "拜拜…记得回来找我玩" },
     { re: /困|睡觉|好累/i, emo: "01", reply: "那我先睡一会儿…zZ" },
-    { re: /哈哈|好笑|笑死/i, emo: "11", reply: "哈哈哈对吧！" },
+    { re: /哈哈|好笑|笑死/i, emo: "10", reply: "哈哈哈对吧！" },
     { re: /完成|做好|搞定|成功/i, emo: "33", reply: "太棒了！庆祝一下" },
-    { re: /在吗|在不在/i, emo: "20", reply: "在呢在呢，一直都在～" },
+    { re: /在吗|在不在/i, emo: "31", reply: "在呢在呢，一直都在～" },
   ];
   const CHAT_FALLBACK = [
     { emo: "10", reply: "嗯嗯，我在听！" },
     { emo: "13", reply: "好耶！" },
-    { emo: "20", reply: "你猜～" },
+    { emo: "31", reply: "你猜～" },
     { emo: "30", reply: "这个问题值得想一想…" },
     { emo: "14", reply: "哇，真的吗？" },
   ];
@@ -715,13 +716,13 @@
     dobby.opts.eyeColor = EYE_INK[s] || EYE_INK.dark;
     // 注册表内就地替换图片路径（底图 + 无眼补丁 + 精灵眼）
     DobbyEmotions.list().forEach((def) => {
-      def.img = `${SKINS[s]}/${def.id}.webp`;
+      def.img = `${SKINS[s]}/${def.id}.webp?v=${ASSET_V}`;
       const im = new Image(); im.src = def.img;   // 预载
       /* 补丁是「按皮肤生成的」：白皮肤的补丁只能配白皮肤的底图，
          漏掉 eyeRings 这条路径会让白皮肤贴上黑皮肤的补丁，脸上一块色差 */
       [def.eyeLayer, def.eyeRings].forEach((cfg) => {
         if (!cfg || !cfg.patch) return;
-        cfg.patch = `${SKINS[s]}/${def.id}-patch.webp`;
+        cfg.patch = `${SKINS[s]}/${def.id}-patch.webp?v=${ASSET_V}`;
         const p = new Image(); p.src = cfg.patch;
       });
       if (def.eyeLayer) {

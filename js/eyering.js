@@ -59,7 +59,10 @@
     faceC: [143.9, 153.1],
     faceR: [74.3, 54.3],
     eyes: [[114.5, 158.4], [166.6, 162.6]],
-    scale: 0.88,
+    /* scale：把眼环单位换算到 300px 画布。emoball 的球直径 228 单位，
+       我们这张脸宽 148px —— 按脸/球的比例换算约 0.65，与素材自带眼睛
+       （21.5px 宽）也对得上 */
+    scale: 0.68,
     wrap: 0.55,
     maxEyeY: 164,
     minHalf: 30
@@ -109,7 +112,7 @@
     this.poolIdx = 0;
     this.poolMs = 0;
     this.cur = [cloneRing(EB_EYES[0][0]), cloneRing(EB_EYES[0][1])];
-    this.pose = { open: 1, openR: 1, scaleY: 1, lookX: 0, lookY: 0, color: "#1A1A1A" };
+    this.pose = { open: 1, openR: 1, scaleY: 1, size: 1, lookX: 0, lookY: 0, color: "#1A1A1A" };
     /* 环自带偏移的采纳比例：0 = 完全居中（只要形状），1 = 全用（保留「瞟向哪边」）。
        这张脸的眼睛下方就是嘴，纵向必须收着用，否则眼睛会压到嘴上 */
     this.look = { x: 0.45, y: 0.05 };
@@ -138,6 +141,7 @@
     this.pose.openR = opts.openR == null ? this.pose.open : opts.openR;
     this.pose.scaleY = opts.scaleY == null ? 1 : opts.scaleY;
     this.blinkMs = opts.blinkMs === null ? 0 : (opts.blinkMs || 2600 + Math.random() * 2400);
+    this.pose.size = opts.size == null ? 1 : opts.size;
     if (opts.look != null) this.look.x = opts.look;
     if (opts.color) { this.pose.color = opts.color; }
     for (var k = 0; k < 2; k++) this.nodes[k].setAttribute("fill", this.pose.color);
@@ -183,8 +187,9 @@
       var ring = this.cur[k2];
       var c = centroid(ring);
       /* 眼睛的家 = 角色自己的眼位 + 该环自带的偏移（扫读 / 斜眼靠它表达） */
-      var homeX = g.eyes[k2][0] + (c[0] - this.base[k2][0]) * g.scale * LOOK_X;
-      var homeY = g.eyes[k2][1] + (c[1] - this.base[k2][1]) * g.scale * LOOK_Y;
+      var offK = g.scale;
+      var homeX = g.eyes[k2][0] + (c[0] - this.base[k2][0]) * offK * LOOK_X;
+      var homeY = g.eyes[k2][1] + (c[1] - this.base[k2][1]) * offK * LOOK_Y;
 
       /* 纵向：眼球的家 + 视线纵向偏移，并夹在脸盘里 */
       var dy = (homeY - g.faceC[1]) / g.faceR[1];
@@ -205,10 +210,13 @@
       var ex = g.faceC[0] + half * Math.sin(theta) * 0.985;
       var cn = Math.cos(theta * g.wrap);
 
-      /* 横向再乘 cos 做透视压缩；纵向承担开合（眨眼 / 眯眼） */
+      /* 横向再乘 cos 做透视压缩；纵向承担开合（眨眼 / 眯眼）。
+         环按 1:1 画（emoball 也是 1:1），整体 scale 把「球」的尺度换算到
+         我们这张脸；size 是每个表情自己的微调系数（大眼睛的环偏大时收一点） */
+      var kBase = g.scale * (this.pose.size || 1);
       var op = k2 === 0 ? this.pose.open : this.pose.openR;
-      var kx = clamp(g.scale * cn, 0.05, 2.4);
-      var ky = clamp(g.scale * this.pose.scaleY * op * open * fy, 0.02, 2.4);
+      var kx = clamp(kBase * cn, 0.05, 2.4);
+      var ky = clamp(kBase * this.pose.scaleY * op * open * fy, 0.02, 2.4);
       this.nodes[k2].setAttribute("transform",
         "translate(" + ex.toFixed(2) + " " + ey.toFixed(2) + ")" +
         " scale(" + kx.toFixed(4) + " " + ky.toFixed(4) + ")" +
@@ -264,12 +272,15 @@
   EmotionThumb.prototype.setDef = function (def, skin) {
     if (skin) this.skin = skin;
     var prefix = this.skin === "light" ? "assets/sw-white/" : "assets/sw/";
+    var V = (global.DOBBY_ASSET_V || "1");
     this.def = def;
-    this.base.src = def.img || (prefix + def.id + ".webp");
+    /* 底图与补丁都按「当前皮肤」拼，不要拿 def.img —— 那是注册表里的路径，
+       换皮肤是由别处就地改写的，取它会出现「黑底图配白补丁」的混搭 */
+    this.base.src = prefix + def.id + ".webp?v=" + V;
 
     var cfg = def.eyeRings || def.eyeLayer;
     if (cfg && cfg.patch) {
-      this.patch.src = prefix + def.id + "-patch.webp";
+      this.patch.src = prefix + def.id + "-patch.webp?v=" + V;
       this.patch.style.left = cfg.x + "%";
       this.patch.style.top = cfg.y + "%";
       this.patch.style.width = cfg.w + "%";
@@ -287,6 +298,7 @@
         openR: def.eyeRings.openR,
         scaleY: def.eyeRings.scaleY,
         blinkMs: def.eyeRings.blinkMs === null ? null : def.eyeRings.blinkMs,
+        size: def.eyeRings.size,
         look: def.eyeRings.look,
         color: this.skin === "light" ? "#57443e" : "#1c1a23"
       });

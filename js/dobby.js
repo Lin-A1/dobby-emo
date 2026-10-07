@@ -25,7 +25,6 @@
       noBlink: !!def.noBlink,
       effect: def.effect || "none",                     // 常驻特效
       eyeRings: def.eyeRings || null,                   // emoball 式矢量眼环配置
-      eyeLayer: def.eyeLayer || null,                   // 可动眼层（补丁 + 眼睛精灵）
     };
   }
 
@@ -169,12 +168,8 @@
       const f = el("div", ("dobby-frame " + cls).trim(), this.faceEl);
       f.base = el("img", "f-base", f);
       f.patch = el("img", "f-patch", f);
-      f.eye = el("div", "f-eye", f);
-      f.sprite = el("img", "f-sprite", f.eye);
-      f.shade = el("i", "f-shade", f.eye);
-      f.glint = el("i", "f-glint", f.eye);
-      f.base.draggable = f.patch.draggable = f.sprite.draggable = false;
-      f.patch.style.display = f.eye.style.display = "none";
+      f.base.draggable = f.patch.draggable = false;
+      f.patch.style.display = "none";
       return f;
     }
 
@@ -278,34 +273,17 @@
       return true;
     }
 
-    /* 给一帧脸穿上眼睛：
-         eyeRings → 只铺「无眼补丁」，眼睛交给上层的矢量眼环
-         eyeLayer → 铺补丁 + 精灵眼（附球面明暗与高光）
-         两者都没有 → 没有眼层，用素材自带的烘焙眼睛
-       补丁是两边共用的：它把烘焙眼睛抹掉，否则新眼睛会叠在旧眼睛上 */
+    /* 给一帧脸铺上「无眼补丁」：把素材里烘焙的眼睛抹掉，
+       眼睛由上层（faceEl 里的眼环层）实时画。没有配 eyeRings 的表情
+       就直接用素材自带的烘焙眼睛 */
     _dressEyes(f, def) {
-      const ring = def.eyeRings;
-      const lay = def.eyeLayer;
-      const patchCfg = ring || lay;
-      if (patchCfg && patchCfg.patch) {
-        f.patch.src = patchCfg.patch;
-        this._placeLayer(f.patch, patchCfg);
+      const cfg = def.eyeRings;
+      if (cfg && cfg.patch) {
+        f.patch.src = cfg.patch;
+        this._placeLayer(f.patch, cfg);
         f.patch.style.display = "";
       } else {
         f.patch.style.display = "none";
-      }
-      if (lay && lay.patch && lay.sprite) {
-        f.sprite.src = lay.sprite;
-        this._placeLayer(f.eye, lay);
-        /* 用精灵自己的 alpha 当遮罩，球面明暗才会严格落在眼形里 */
-        const m = 'url("' + lay.sprite + '")';
-        f.shade.style.webkitMaskImage = m;
-        f.shade.style.maskImage = m;
-        this._placeGlint(f.glint, lay);
-        f.eye.style.display = "";
-      } else {
-        f.eye.style.display = "none";
-        f.eye.style.transform = "";
       }
     }
 
@@ -321,6 +299,7 @@
         openR: cfg.openR,
         scaleY: cfg.scaleY,
         blinkMs: cfg.blinkMs === null ? null : cfg.blinkMs,
+        size: cfg.size,
         look: cfg.look,          // 漏传这一项的话，所有表情都会退回默认 0.45：
                                  // 该居中的（惊讶 / 眨眼配了 0）被推到一侧、两只眼挤在一起
         color: cfg.color || this.opts.eyeColor,
@@ -333,34 +312,6 @@
       node.style.top = lay.y + "%";
       node.style.width = lay.w + "%";
       node.style.height = lay.h + "%";
-    }
-
-    /* 高光层：在眼球框内按 lay.glint 的锚点补光（框本身由眼层的定位负责）。
-       每条 glint = { x, y, w, hi }，全部相对精灵框：
-         x/y/w     主光点：中心位置（%）与点宽（%）
-         hi:1      素材已自带高光（如 14 号惊讶），整只眼不再叠加，避免双高光
-       （脚本还会测出右下副光 kx/ky/kw，当前不用——参考 emoball 的极简眼睛，
-         多一颗副光眼睛就显「油」）
-       精灵框是扁的：CSS 里 width:% 按容器宽解析、height:% 按容器高解析，
-       故要让点保持正圆，高度百分比 = 宽度百分比 × (框宽/框高)。 */
-    _placeGlint(node, lay) {
-      const g = lay.glint;
-      node.innerHTML = "";
-      if (!g || !g.length) { node.style.display = "none"; return; }
-      node.style.display = "";
-      const ar = (lay.w && lay.h) ? lay.w / lay.h : 1.4;
-      const add = (cls, x, y, w) => {
-        const d = el("span", cls);
-        d.style.width = w + "%";
-        d.style.height = (w * ar) + "%";
-        d.style.left = x + "%";
-        d.style.top = y + "%";
-        node.appendChild(d);
-      };
-      g.forEach((e) => {
-        if (e.hi) return;                      // 素材自带高光，不叠加
-        add("g-dot", e.x, e.y, e.w);           // 只留主光：副光/光晕会让眼睛发油
-      });
     }
 
     /* ---------------- 常驻特效层 ---------------- */
@@ -555,16 +506,6 @@
 
       /* 眼环模式：矢量眼自己完成投影/形变/眨眼，只需要把视线交给它 */
       if (ringMode) this.rings.tick(dt, this.gaze);
-
-      /* 眼层：整个眼球组（精灵 + 明暗 + 高光）跟着视线在眼眶里移动，
-         三者共用同一个 transform，所以「光」和球面明暗始终贴在眼球上 */
-      const lay = ringMode ? null : def.eyeLayer;
-      if (lay) {
-        const mx = lay.max == null ? 6.5 : lay.max;
-        const my = lay.maxY == null ? mx * 0.7 : lay.maxY;
-        this._front.eye.style.transform =
-          `translate3d(${(this.gaze.x * mx).toFixed(2)}px, ${(this.gaze.y * my).toFixed(2)}px, 0)`;
-      }
 
       /* 表情切换挤压弹簧 */
       const sq = this.squash;
