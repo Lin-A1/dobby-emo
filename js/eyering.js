@@ -227,26 +227,34 @@
 
   function EmotionThumb(box, def, skin, opt) {
     opt = opt || {};
-    this.box = box;
+    this.host = box;
     this.skin = skin || "dark";
     this.size = opt.size || 300;
-    box.classList.add("thumb");
-    box.style.width = box.style.height = "100%";
+    box.classList.add("thumb-host");
+
+    /* 内层固定为正方形：底图是正方形的，补丁/眼环的位置都是「相对正方形
+       画布的百分比」。如果直接铺在外层盒子上（陈列墙的卡片是 158×196 这类
+       长方形），百分比会被拉成 1.24 倍，补丁位置一错，眼睛就叠在没抹干净的
+       烘焙眼睛上 —— 看起来就是变形 */
+    this.box = document.createElement("div");
+    this.box.className = "thumb";
+    box.appendChild(this.box);
+    var host = this.box;
 
     this.base = document.createElement("img");
     this.base.className = "thumb-base";
-    box.appendChild(this.base);
+    host.appendChild(this.base);
 
     this.patch = document.createElement("img");
     this.patch.className = "thumb-patch";
-    box.appendChild(this.patch);
+    host.appendChild(this.patch);
 
     var wrap = document.createElement("div");
     wrap.className = "thumb-rings";
     this.svg = document.createElementNS(SVGNS, "svg");
     this.svg.setAttribute("viewBox", "0 0 300 300");
     wrap.appendChild(this.svg);
-    box.appendChild(wrap);
+    host.appendChild(wrap);
 
     this.rings = new EyeRings(this.svg, opt.geo || EYE_GEO);
     this.setDef(def, this.skin);
@@ -308,7 +316,7 @@
 
   EmotionThumb.prototype.destroy = function () {
     this.stop();
-    this.box.innerHTML = "";
+    if (this.host) this.host.innerHTML = "";
   };
 
   global.EmotionThumb = EmotionThumb;

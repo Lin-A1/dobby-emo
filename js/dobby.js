@@ -321,6 +321,8 @@
         openR: cfg.openR,
         scaleY: cfg.scaleY,
         blinkMs: cfg.blinkMs === null ? null : cfg.blinkMs,
+        look: cfg.look,          // 漏传这一项的话，所有表情都会退回默认 0.45：
+                                 // 该居中的（惊讶 / 眨眼配了 0）被推到一侧、两只眼挤在一起
         color: cfg.color || this.opts.eyeColor,
       });
     }
