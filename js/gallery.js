@@ -60,13 +60,20 @@
     stageName.textContent = def.name;
     stageEn.textContent = def.en || "";
     stageDesc.textContent = DESC[def.id] || "";
+    const shell = def.shell || {};
+    const poseName = {
+      open: "上扬", low: "低垂", soft: "收拢", alert: "警觉", focus: "聚焦", quiet: "安静",
+      breathe: "呼吸", bounce: "弹跳", pulse: "脉冲", sway: "轻摆", scan: "扫读", pendulum: "节拍", tremble: "颤动",
+    };
     stageTags.innerHTML =
       `<span>${GROUP_NAMES[def.group] || def.group}</span>` +
       (def.effect && def.effect !== "none" ? `<span>特效 ${def.effect}</span>` : "") +
-      (def.eyeRings ? "<span>矢量眼环</span>" : "<span>素材表情</span>");
+      (def.eyeRings ? "<span>矢量眼环</span>" : "<span>素材表情</span>") +
+      (shell.rhythm ? `<span>外壳 ${poseName[shell.rhythm] || shell.rhythm}</span>` : "");
     statusChip.textContent = `ID ${def.id} / ${DobbyEmotions.list().length} · ${def.name}`;
     brandLogo.src = def.img;
     document.querySelectorAll(".wcard").forEach((n) => n.classList.toggle("active", n.dataset.id === def.id));
+    document.title = `Dobby Emo · ${def.name}`;
   }
 
   /* ---------------- 陈列墙 ---------------- */
@@ -158,9 +165,10 @@
   themeToggle.addEventListener("click", () => {
     const html = document.documentElement;
     html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("dobby-theme", html.dataset.theme);
     syncTheme();
   });
-  document.documentElement.dataset.theme = localStorage.getItem("dobby-theme") || "dark";
+  document.documentElement.dataset.theme = localStorage.getItem("dobby-theme") || "light";
   syncTheme();
 
   /* ---------------- 启动 ---------------- */

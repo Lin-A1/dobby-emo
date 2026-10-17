@@ -213,6 +213,7 @@
   let lastUserSet = -1e9;
   let lastReactAt = -1e9;
   let ambientTimer = null;
+  let tourToggle = null;
 
   function setUser(id, meta = {}) {
     userState.id = String(id);
@@ -312,7 +313,7 @@
 
   /* ---------------- 点击空白：吓一跳 ---------------- */
   addEventListener("pointerdown", (e) => {
-    if (e.target.closest("#dobby-layer .dobby, button, a, input, textarea, select, .wall-item")) return;
+    if (e.target.closest("#dobby-layer .dobby, button, a, label, input, textarea, select, .wall-item")) return;
     if (wake("嗯？怎么了")) return;
     dobby.hop(0.8);
     if (Math.random() < 0.35 && cooldown("scare", 9000)) {
@@ -337,6 +338,7 @@
   /* ---------------- 静置入睡（25s） + 盯太久会害羞 ---------------- */
   setInterval(() => {
     const now = performance.now();
+    if (tourToggle && tourToggle.checked) return;
     if (!sleeping && userState.id !== "01" &&
         now - lastPointer > 25000 && !dobby.dragging) {
       sleeping = true;
@@ -434,12 +436,41 @@
   let firstChange = true;
   dobby.onChange = (def) => {
     const list = DobbyEmotions.list();
+    /* 皮肤切换会刷新两个帧并触发 onLoad，但情绪没有变化；这里必须防重入，
+       否则 refreshSkin -> onChange -> renderWall -> onChange 会无限套娃 */
+    if (firstChange) { firstChange = false; return; }
     statusChip.textContent = `ID ${def.id} / ${list.length} · ${def.name}`;
+    const currentName = document.getElementById("currentEmotion");
+    const currentEn = document.getElementById("currentEmotionEn");
+    const currentCue = document.getElementById("currentEmotionCue");
+    const currentId = document.getElementById("currentEmotionId");
+    const moodBar = document.getElementById("currentMoodBar");
+    const statusCard = document.querySelector(".status-card");
+    const cues = {
+      "00": "眼神在平静与聆听之间切换，角色保持稳定。",
+      "01": "呼吸放慢，身体下沉，周围只需要一点安静。",
+      "10": "眼睛弯起来，身体轻轻向上，情绪被打开。",
+      "13": "视线向上，轮廓提亮，像刚发现什么好玩的事。",
+      "14": "动作定住，眼睛睁大，注意力突然收紧。",
+      "15": "脸压向前，轮廓收紧，情绪带一点锋利的边缘。",
+      "16": "肩膀沉下去，视线也低下去，整个人收拢。",
+      "18": "头稍微偏开，眼神躲闪，靠近会有一点点局促。",
+      "30": "视线向上扫读，身体停住，正在把想法接起来。",
+      "31": "眼睛持续搜索，头部有方向感，但不来回摇。",
+      "32": "短暂故障，轮廓不稳，等待下一次恢复。",
+      "33": "身体抬高，轮廓发亮，完成后的那一下松弛。",
+      "34": "动作收住，节奏稳定，像一条正在走完的进度线。",
+    };
+    if (currentName) currentName.textContent = def.name;
+    if (currentEn) currentEn.textContent = def.en || "";
+    if (currentCue) currentCue.textContent = cues[def.id] || "眼神与轮廓正在回应当前状态。";
+    if (currentId) currentId.textContent = `ID ${def.id}`;
+    if (moodBar) moodBar.style.width = ({ "00": "28%", "01": "18%", "10": "72%", "13": "88%", "14": "76%", "15": "64%", "16": "32%", "18": "46%", "30": "56%", "31": "62%", "32": "24%", "33": "82%", "34": "48%" }[def.id] || "44%");
+    if (statusCard) statusCard.dataset.tone = (def.shell && def.shell.tone) || "quiet";
     brandLogo.src = def.img;
     document.querySelectorAll(".wall-item").forEach((n) => {
       n.classList.toggle("active", n.dataset.id === def.id);
     });
-    if (firstChange) { firstChange = false; return; }
     Sound.pop(def.group);
   };
 
@@ -656,12 +687,12 @@
   }, 1800);
 
   /* ---------------- 自动巡演 ---------------- */
-  const tourToggle = document.getElementById("tourToggle");
+  tourToggle = document.getElementById("tourToggle");
   const tourInterval = document.getElementById("tourInterval");
   let tourTimer = null;
 
   function startTour() {
-    stopTour();
+    if (tourTimer) { clearInterval(tourTimer); tourTimer = null; }
     tourTimer = setInterval(() => {
       const list = DobbyEmotions.list();
       if (!list.length) return;
@@ -683,7 +714,9 @@
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "dobby-emo-config.json";
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     URL.revokeObjectURL(a.href);
     log("✓ 配置已导出", "ok");
   });
@@ -735,6 +768,7 @@
     renderWall();
     if (dobby.emotion) {
       dobby.refreshSkin();
+      dobby.onChange(dobby.emotion, {});
       dobby._applyRings(dobby.emotion);
       brandLogo.src = dobby.emotion.img;
     }
@@ -753,8 +787,10 @@
   themeToggle.addEventListener("click", () => {
     const html = document.documentElement;
     html.dataset.theme = html.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("dobby-theme", html.dataset.theme);
     syncTheme();
   });
+  document.documentElement.dataset.theme = localStorage.getItem("dobby-theme") || "light";
   syncTheme();
 
   const soundToggle = document.getElementById("soundToggle");

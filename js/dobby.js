@@ -38,6 +38,18 @@
       bob: typeof def.bob === "number" ? def.bob : 1,   // 漂浮幅度系数
       noBlink: !!def.noBlink,
       effect: def.effect || "none",                     // 常驻特效
+      shell: Object.assign({
+        tone: "quiet",      // 外壳色彩/轮廓情绪
+        rhythm: "breathe",  // 外壳微动作
+        lift: 0,            // 垂直位移（px）
+        lean: 0,            // 横向位移（px）
+        tilt: 0,            // 倾斜（deg）
+        stretch: 1,         // 横向比例
+        squash: 1,          // 纵向比例
+        bob: 1,             // 漂浮幅度倍率
+        motion: 1.5,        // 情绪动作幅度
+        speed: 1,           // 情绪动作速度
+      }, def.shell || {}),
       eyeRings: def.eyeRings || null,                   // emoball 式矢量眼环配置
       pose: normalizePose(def.pose),                    // 表情驱动的外观姿态
     };
@@ -109,10 +121,17 @@
       this.poseCur = normalizePose(null);
       this.poseVel = { sy: 0, sx: 0, rot: 0, yaw: 0, pitch: 0, y: 0, x: 0 };
       this.squash = { s: 1, v: 0 };
+      /* 外壳姿态用弹簧追目标：切换表情时身体先跟过去，再由呼吸/尾巴节奏接管。
+         这些值全部由 emotions.js 的 shell 配置驱动，引擎不内置表情白名单。 */
       this.hopT = 1;                     // <1 表示正在跳
       this.blink = 0;                    // 0→1→0 眨眼相位
       this._blinkTimer = 2 + Math.random() * 3;
       this.emotion = null;
+      this.shellPose = {
+        lift: 0, lean: 0, tilt: -0.4, stretch: 1, squash: 1,
+        vLift: 0, vLean: 0, vTilt: 0, vStretch: 0, vSquash: 0,
+      };
+      this._shellTarget = null;
       this.sticky = false;
       this.follow = false;               // 跟随模式（锚点缓慢追指针）
       this._vs = 1;                      // 视口缩放（小屏整体缩小）
@@ -279,8 +298,12 @@
       this.emotion = def;
       this.sticky = meta.sticky !== false;
       this.root.classList.toggle("sleeping", def.id === "01");
+      this.root.dataset.emotion = def.id;
+      this.root.dataset.tone = def.shell.tone;
+      this._shellTarget = def.shell;
       this._renderAura(def);
       this._applyRings(def);
+      if (this.onChange) this.onChange(def, meta);
 
       if (changed) {
         // 变形过渡：旧帧淡出，新帧弹性弹入（带回弹过冲）
@@ -299,7 +322,6 @@
       }
 
       if (meta.tips != null) this._showTips(meta.tips);
-      if (this.onChange) this.onChange(def, meta);
       return true;
     }
 
@@ -508,8 +530,12 @@
 
       /* 待机漂浮（睡觉放缓；说话时快速小抖动） */
       const sleeping = def.id === "01";
-      let bobAmp = this.reduceMotion ? 0 : 10 * def.bob * (sleeping ? 0.45 : 1);
-      let bobSpeed = sleeping ? 1.1 : 2.1;
+      const shell = def.shell;
+      /* 角色是展台里的主体：不再持续漂移。只保留极轻的呼吸和情绪切换时
+         的一次性姿态弹簧；视线只动眼睛，不再带动整颗头。 */
+      const idleMotion = this.opts.idleMotion == null ? 1 : this.opts.idleMotion;
+      let bobAmp = this.reduceMotion ? 0 : 2.2 * def.bob * (sleeping ? 0.35 : 1) * idleMotion;
+      let bobSpeed = (sleeping ? 0.8 : 1.35) * shell.speed;
       if (this.speakT > 0) {
         this.speakT -= dt;
         bobSpeed *= 2.3;
@@ -517,8 +543,27 @@
       }
       const bobY = Math.sin(t * bobSpeed) * bobAmp;
       this._bobY = bobY;
-      const sway = this.reduceMotion ? 0 : Math.sin(t * 1.05) * (sleeping ? 0.8 : 2);
-      const breath = this.reduceMotion ? 1 : 1 + Math.sin(t * 1.35) * 0.01;   // 呼吸
+      const shellT = t * shell.speed;
+      /* 持续性节奏只保留极轻的呼吸；强表情用定格姿态，不靠摇晃表达。 */
+      let shellDX = 0, shellDY = 0, shellROT = 0, shellX = 1, shellY = 1;
+      if (shell.rhythm === "breathe") {
+        shellY += Math.sin(shellT * 1.35) * 0.004;
+      }
+      const breath = this.reduceMotion ? 1 : 1 + Math.sin(t * 1.2) * 0.004 * idleMotion;
+
+      /* 外壳姿态弹簧：所有状态共用一组弹簧，切换时由目标值平滑过渡 */
+      const sp = this.shellPose;
+      const stiff = 92, damp = 15;
+      const step = (value, velocity, target) => {
+        velocity += ((target - value) * stiff - velocity * damp) * dt;
+        value += velocity * dt;
+        return [value, velocity];
+      };
+      [sp.lift, sp.vLift] = step(sp.lift, sp.vLift, shell.lift);
+      [sp.lean, sp.vLean] = step(sp.lean, sp.vLean, shell.lean);
+      [sp.tilt, sp.vTilt] = step(sp.tilt, sp.vTilt, shell.tilt);
+      [sp.stretch, sp.vStretch] = step(sp.stretch, sp.vStretch, shell.stretch);
+      [sp.squash, sp.vSquash] = step(sp.squash, sp.vSquash, shell.squash);
 
       /* 眨眼（睡觉不眨）。用眼环的表情由眼环自己眨眼（眼睑是真闭合），
          整张脸不再跟着压扁 */
@@ -577,25 +622,24 @@
       /* 应用变换（vs：小屏整体缩放，围绕锚点中心） */
       this.root.style.transform =
         `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0) scale(${this._vs})`;
-      this.bobEl.style.transform = `translateY(${bobY}px)`;
+      this.bobEl.style.transform = `translateY(${bobY + sp.lift + shellDY}px)`;
 
       const p = this.poseCur;
-      /* 头身：2.5D 转动 + 情绪姿态；rot 保留原来的呼吸摆动。
-         头部跟随必须比「眼睛自己转」更夸张才读得出来：眼睛 26px 的位移
-         只是一瞬，头要 12px 平移 + 7.5° 转头才像真的把脸转过去 */
-      const rot = sway + p.rot + this.head.x * 4.2;
+      /* 远程的 2.5D 头身姿态与本地外壳层共用同一个变换。
+         头身只在用户主动靠近时做极轻的滞后跟随，不再持续摇曳。 */
+      const headX = this.reduceMotion ? 0 : this.head.x;
+      const headY = this.reduceMotion ? 0 : this.head.y;
+      const rot = p.rot + sp.tilt + shellROT;
       this.tiltEl.style.transform =
-        `translate3d(${this.head.x * 12 + p.x}px, ${this.head.y * 7}px, 0) ` +
+        `translate3d(${headX * 4 + sp.lean + shellDX + p.x}px, ${headY * 2.5}px, 0) ` +
         `rotate(${rot}deg) ` +
-        `rotateY(${p.yaw + this.head.x * 7.5}deg) ` +
-        `rotateX(${-(p.pitch + this.head.y * 1.8)}deg)`;
-      /* 轮廓层：以脚部为原点做 2–3% 拉伸，耳朵/头顶先变，笔记本和尾巴基本不动 */
+        `rotateY(${p.yaw + headX * 2.2}deg) ` +
+        `rotateX(${-(p.pitch + headY * 0.7)}deg)`;
       this.poseEl.style.transform =
-        `translateY(${p.y}px) scale(${p.sx}, ${p.sy})`;
+        `translateY(${p.y}px) scale(${p.sx * sp.stretch * shellX}, ${p.sy * sp.squash * shellY})`;
       const sx = (1 + (1 - sq.s) * 0.55) * breath;
-      /* 眼神交给眼层，脸只做极小的跟随位移 */
       this.faceEl.style.transform =
-        `translate(${this.gaze.x * 1.4}px, ${this.gaze.y * 1.1}px) scale(${sx}, ${sq.s * blinkScale})`;
+        `translate(0px, 0px) scale(${sx}, ${sq.s * blinkScale})`;
 
       /* 影子随位移缩放变淡 */
       const lift = clamp(Math.hypot(this.pos.x, this.pos.y) / 320, 0, 0.45);
