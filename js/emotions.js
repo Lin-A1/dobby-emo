@@ -51,7 +51,7 @@ window.DOBBY_EMOTION_PRESET = [
 
   { id: "10", name: "开心", en: "Happy", group: "emotion", img: "assets/sw/10.webp?v=80",
     pose: { sy: 1.034, sx: 1.012, rot: 2.4, yaw: 1.6, pitch: -1.8, y: -6, x: 0 },
-    eyeRings: { pool: [2, 11, 17, 19], poolMs: 3200, blinkMs: 2500, size: 0.82, scaleY: 0.58, look: 0.15, patch: "assets/sw/10-patch.webp?v=80", x: 27.592, y: 44.019, w: 38.676, h: 16.427 } },
+    eyeRings: { pool: [2, 11, 17, 19], poolMs: 3200, blinkMs: 2500, size: 0.82, look: 0.15, patch: "assets/sw/10-patch.webp?v=80", x: 27.592, y: 44.019, w: 38.676, h: 16.427 } },
   { id: "13", name: "兴奋", en: "Excited", group: "emotion", img: "assets/sw/13.webp?v=80",
     pose: { sy: 1.040, sx: 1.014, rot: 3.4, yaw: 2.6, pitch: -3.0, y: -8, x: 1 },
     eyeRings: { pool: [3, 21], poolMs: 1800, blinkMs: 1200, size: 0.86, look: 0.25, patch: "assets/sw/13-patch.webp?v=80", x: 26.396, y: 35.805, w: 43.381, h: 24.641 } },
@@ -79,7 +79,7 @@ window.DOBBY_EMOTION_PRESET = [
     eyeRings: { pool: [3, 21], poolMs: 1800, blinkMs: null, open: 1.05, look: 0.0, patch: "assets/sw/32-patch.webp?v=80", x: 28.23, y: 41.707, w: 38.437, h: 21.053 } },
   { id: "33", name: "完成", en: "Success", group: "agent", img: "assets/sw/33.webp?v=80",
     pose: { sy: 1.030, sx: 1.008, rot: 2.0, yaw: 0.0, pitch: -2.2, y: -4, x: 0 },
-    eyeRings: { pool: [2, 8, 17], poolMs: 3000, blinkMs: 2200, size: 0.86, scaleY: 0.78, look: 0.2, patch: "assets/sw/33-patch.webp?v=80", x: 30.144, y: 38.995, w: 35.486, h: 20.893 } },
+    eyeRings: { pool: [2, 8, 17], poolMs: 3000, blinkMs: 2200, size: 0.86, look: 0.2, patch: "assets/sw/33-patch.webp?v=80", x: 30.144, y: 38.995, w: 35.486, h: 20.893 } },
   { id: "34", name: "处理中", en: "Loading", group: "agent", img: "assets/sw/34.webp?v=80", effect: "bar",
     pose: { sy: 1.010, sx: 1.000, rot: 0.0, yaw: 0.0, pitch: 0.0, y: -2, x: 0 },
     eyeRings: { pool: [7, 16, 11, 10], poolMs: 2800, blinkMs: 2800, look: 0.25, patch: "assets/sw/34-patch.webp?v=80", x: 26.715, y: 40.51, w: 41.547, h: 21.691 } },
