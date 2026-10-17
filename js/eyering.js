@@ -58,13 +58,18 @@
   var EYE_GEO = {
     faceC: [143.9, 153.1],
     faceR: [74.3, 54.3],
-    eyes: [[114.5, 158.4], [166.6, 162.6]],
+    /* 眼睛的家比脸中心略高：素材的嘴就在眼睛正下方，眼睛压低会压到嘴角。
+       右眼原本比左眼低 4px（脸略侧转），保留这点不对称，眼睛才不像贴纸 */
+    eyes: [[114.5, 151.8], [166.6, 155.6]],
     /* scale：把眼环单位换算到 300px 画布。emoball 的球直径 228 单位，
        我们这张脸宽 148px —— 按脸/球的比例换算约 0.65，与素材自带眼睛
        （21.5px 宽）也对得上 */
     scale: 0.68,
     wrap: 0.55,
-    maxEyeY: 164,
+    maxEyeY: 156,
+    /* 眼环底边的硬下限（300px 画布）：嘴的上缘约 170，留 5px 安全距。
+       闭眼环本身很长，只夹中心会先压到嘴角，所以按底边夹 */
+    eyeBottom: 167,
     minHalf: 30
   };
 
@@ -183,6 +188,7 @@
     var g = this.geo;
     var gz = gaze || { x: 0, y: 0 };
     var LOOK_X = this.look.x, LOOK_Y = this.look.y;
+    var eyes = [];
     for (var k2 = 0; k2 < 2; k2++) {
       var ring = this.cur[k2];
       var c = centroid(ring);
@@ -196,7 +202,7 @@
       var fy = Math.sqrt(Math.max(0.35, 1 - dy * dy * 0.22));
       /* 纵向夹住：眼睛底边不能压到嘴上（我们的脸不像球那样有地方给眼睛往下走） */
       var maxY = g.maxEyeY == null ? g.faceC[1] + 13 : g.maxEyeY;
-      var ey = clamp(homeY + gz.y * 5 + this.pose.lookY,
+      var ey = clamp(homeY + gz.y * 2.5 + this.pose.lookY,
                      g.faceC[1] - g.faceR[1] + 12, maxY);
 
       /* 横向：把「家 → 脸中线」的偏移换算成经度，再投影到椭圆面上。
@@ -217,11 +223,35 @@
       var op = k2 === 0 ? this.pose.open : this.pose.openR;
       var kx = clamp(kBase * cn, 0.05, 2.4);
       var ky = clamp(kBase * this.pose.scaleY * op * open * fy, 0.02, 2.4);
-      this.nodes[k2].setAttribute("transform",
-        "translate(" + ex.toFixed(2) + " " + ey.toFixed(2) + ")" +
-        " scale(" + kx.toFixed(4) + " " + ky.toFixed(4) + ")" +
-        " translate(" + (-c[0]).toFixed(2) + " " + (-c[1]).toFixed(2) + ")");
-      this.nodes[k2].setAttribute("d", ringPath(ring));
+
+      /* 环底边实际落在哪儿：不同眼环高度差很大（圆眼 / 闭眼），
+         只夹中心点不够，闭眼的长条会先压到嘴。两只眼用同一个修正量，
+         否则一眼被抬起、一眼留在原地，看起来像大小眼 */
+      var ringTop = Infinity, ringBot = -Infinity;
+      for (var ri = 0; ri < ring.length; ri++) {
+        if (ring[ri][1] < ringTop) ringTop = ring[ri][1];
+        if (ring[ri][1] > ringBot) ringBot = ring[ri][1];
+      }
+      var bottomEdge = ey + (ringBot - c[1]) * ky;
+      eyes.push({ ring: ring, c: c, ex: ex, ey: ey, kx: kx, ky: ky, bottom: bottomEdge });
+    }
+
+    /* 以「最靠下的那只眼」为准整体上移，嘴是两只眼共享的禁区 */
+    var overflow = 0;
+    if (g.eyeBottom != null) {
+      for (var e2 = 0; e2 < 2; e2++) {
+        overflow = Math.max(overflow, eyes[e2].bottom - g.eyeBottom);
+      }
+    }
+    overflow = Math.max(0, overflow);
+
+    for (var k3 = 0; k3 < 2; k3++) {
+      var it = eyes[k3], eyeb = it.ey - overflow;
+      this.nodes[k3].setAttribute("transform",
+        "translate(" + it.ex.toFixed(2) + " " + eyeb.toFixed(2) + ")" +
+        " scale(" + it.kx.toFixed(4) + " " + it.ky.toFixed(4) + ")" +
+        " translate(" + (-it.c[0]).toFixed(2) + " " + (-it.c[1]).toFixed(2) + ")");
+      this.nodes[k3].setAttribute("d", ringPath(it.ring));
     }
   };
 

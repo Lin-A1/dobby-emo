@@ -13,6 +13,20 @@
   const registry = new Map();          // id -> def
   const registryListeners = new Set(); // 注册表变化时通知 UI 重绘
 
+  /* 姿态基线：只动轮廓，不动素材。sy/sx 是整体缩放，rot 是左右倾，
+     yaw/pitch 是头部 2.5D 转动，y/x 是整体位移（px，按 300px 画布计）。 */
+  const POSE_DEFAULTS = { sy: 1, sx: 1, rot: 0, yaw: 0, pitch: 0, y: 0, x: 0 };
+
+  function normalizePose(raw) {
+    const pose = Object.assign({}, POSE_DEFAULTS);
+    if (raw && typeof raw === "object") {
+      for (const k in POSE_DEFAULTS) {
+        if (typeof raw[k] === "number" && isFinite(raw[k])) pose[k] = raw[k];
+      }
+    }
+    return pose;
+  }
+
   function normalizeDef(def) {
     if (!def || typeof def.id !== "string" || !def.id.trim()) return null;
     return {
@@ -25,6 +39,7 @@
       noBlink: !!def.noBlink,
       effect: def.effect || "none",                     // 常驻特效
       eyeRings: def.eyeRings || null,                   // emoball 式矢量眼环配置
+      pose: normalizePose(def.pose),                    // 表情驱动的外观姿态
     };
   }
 
@@ -89,7 +104,10 @@
       this.vel = { x: 0, y: 0 };
       this.dragTarget = { x: 0, y: 0 };
       this.dragging = false;
-      this.gaze = { x: 0, y: 0 };
+      this.gaze = { x: 0, y: 0 };        // 眼睛：先动
+      this.head = { x: 0, y: 0 };        // 头身：滞后跟随眼睛
+      this.poseCur = normalizePose(null);
+      this.poseVel = { sy: 0, sx: 0, rot: 0, yaw: 0, pitch: 0, y: 0, x: 0 };
       this.squash = { s: 1, v: 0 };
       this.hopT = 1;                     // <1 表示正在跳
       this.blink = 0;                    // 0→1→0 眨眼相位
@@ -98,6 +116,17 @@
       this.sticky = false;
       this.follow = false;               // 跟随模式（锚点缓慢追指针）
       this._vs = 1;                      // 视口缩放（小屏整体缩小）
+
+      /* 系统减弱动效：姿态瞬切、漂浮/呼吸/视线全部停住 */
+      this._mqMotion = global.matchMedia
+        ? global.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+      this.reduceMotion = !!(this._mqMotion && this._mqMotion.matches);
+      this._onMotionPref = (e) => { this.reduceMotion = e.matches; };
+      if (this._mqMotion) {
+        if (this._mqMotion.addEventListener) this._mqMotion.addEventListener("change", this._onMotionPref);
+        else if (this._mqMotion.addListener) this._mqMotion.addListener(this._onMotionPref);
+      }
 
       this._bindDrag();
       this._onResize = () => this.setAnchor(this.anchor.x, this.anchor.y);
@@ -120,7 +149,8 @@
 
       this.bobEl = el("div", "dobby-bob", root);
       this.tiltEl = el("div", "dobby-tilt", this.bobEl);
-      this.faceEl = el("div", "dobby-face", this.tiltEl);
+      this.poseEl = el("div", "dobby-pose", this.tiltEl);
+      this.faceEl = el("div", "dobby-face", this.poseEl);
 
       /* 两张「帧」交叉淡入淡出，每帧 = 底图 + 眼睛补丁 + 眼睛精灵，
          后两层让眼球可以真的跟着指针转（只有部分表情带眼层） */
@@ -355,7 +385,8 @@
     /* 气泡跟着头顶走（视口坐标：图层是 fixed 全屏层） */
     _placeTips() {
       const c = this.faceCenter();
-      const headTop = this.anchor.y + this.pos.y - 130 * this._vs + this._bobY * this._vs;
+      const headTop = this.anchor.y + this.pos.y - 130 * this._vs + this._bobY * this._vs
+        + (this.poseCur.y + (1 - this.poseCur.sy) * 256) * this._vs;
       if (this._tipsW == null) this._tipsW = (this.tipsEl.offsetWidth || 120) / 2 + 8;
       const half = this._tipsW;
       const x = clamp(c.x, Math.min(half, innerWidth - half), Math.max(half, innerWidth - half));
@@ -465,12 +496,19 @@
           ty = Math.cos(t * 0.17) * 0.26;
         }
       }
-      this.gaze.x += (tx - this.gaze.x) * lerpK(dt, 2.4);
-      this.gaze.y += (ty - this.gaze.y) * lerpK(dt, 2.4);
+      if (this.reduceMotion) { tx = 0; ty = 0; }
+      this.gaze.x += (tx - this.gaze.x) * lerpK(dt, 3.0);
+      this.gaze.y += (ty - this.gaze.y) * lerpK(dt, 3.0);
+      if (this.reduceMotion) { this.gaze.x = 0; this.gaze.y = 0; }
+      /* 眼睛先到位，头身慢半拍：差值就是「先看一眼、再转头」的延迟。
+         头部跟随放到 1.5 左右，视线已经转过去小半秒，头才慢慢跟上；
+         幅度在下面放大，不然 1–2px 的位移肉眼根本看不见 */
+      this.head.x += (this.gaze.x - this.head.x) * lerpK(dt, this.reduceMotion ? 60 : 1.5);
+      this.head.y += (this.gaze.y - this.head.y) * lerpK(dt, this.reduceMotion ? 60 : 1.5);
 
       /* 待机漂浮（睡觉放缓；说话时快速小抖动） */
       const sleeping = def.id === "01";
-      let bobAmp = 10 * def.bob * (sleeping ? 0.45 : 1);
+      let bobAmp = this.reduceMotion ? 0 : 10 * def.bob * (sleeping ? 0.45 : 1);
       let bobSpeed = sleeping ? 1.1 : 2.1;
       if (this.speakT > 0) {
         this.speakT -= dt;
@@ -479,8 +517,8 @@
       }
       const bobY = Math.sin(t * bobSpeed) * bobAmp;
       this._bobY = bobY;
-      const sway = Math.sin(t * 1.05) * (sleeping ? 0.8 : 2);
-      const breath = 1 + Math.sin(t * 1.35) * 0.01;   // 呼吸
+      const sway = this.reduceMotion ? 0 : Math.sin(t * 1.05) * (sleeping ? 0.8 : 2);
+      const breath = this.reduceMotion ? 1 : 1 + Math.sin(t * 1.35) * 0.01;   // 呼吸
 
       /* 眨眼（睡觉不眨）。用眼环的表情由眼环自己眨眼（眼睑是真闭合），
          整张脸不再跟着压扁 */
@@ -512,6 +550,23 @@
       sq.v += ((1 - sq.s) * 220 - sq.v * 13) * dt;
       sq.s += sq.v * dt;
 
+      /* 姿态弹簧：每个表情一套轮廓参数，切换时 300ms 左右到位，略带过冲。
+         眼睛不参与这一层，仍然由 gaze 驱动，所以先看、后动身体。 */
+      const poseTarget = def.pose || POSE_DEFAULTS;
+      if (this.reduceMotion) {
+        for (const k in this.poseCur) {
+          this.poseCur[k] = poseTarget[k];
+          this.poseVel[k] = 0;
+        }
+      } else {
+        const pk = 120, pd = 17;
+        for (const k in this.poseCur) {
+          const a = (poseTarget[k] - this.poseCur[k]) * pk - this.poseVel[k] * pd;
+          this.poseVel[k] += a * dt;
+          this.poseCur[k] += this.poseVel[k] * dt;
+        }
+      }
+
       /* 跳跃位移 */
       let hopY = 0;
       if (this.hopT < 1) {
@@ -523,13 +578,24 @@
       this.root.style.transform =
         `translate3d(${this.pos.x}px, ${this.pos.y + hopY}px, 0) scale(${this._vs})`;
       this.bobEl.style.transform = `translateY(${bobY}px)`;
-      const rot = sway + this.gaze.x * 2.4;
+
+      const p = this.poseCur;
+      /* 头身：2.5D 转动 + 情绪姿态；rot 保留原来的呼吸摆动。
+         头部跟随必须比「眼睛自己转」更夸张才读得出来：眼睛 26px 的位移
+         只是一瞬，头要 12px 平移 + 7.5° 转头才像真的把脸转过去 */
+      const rot = sway + p.rot + this.head.x * 4.2;
       this.tiltEl.style.transform =
-        `translate(${this.gaze.x * 3}px, ${this.gaze.y * 2.4}px) rotate(${rot}deg)`;
+        `translate3d(${this.head.x * 12 + p.x}px, ${this.head.y * 7}px, 0) ` +
+        `rotate(${rot}deg) ` +
+        `rotateY(${p.yaw + this.head.x * 7.5}deg) ` +
+        `rotateX(${-(p.pitch + this.head.y * 1.8)}deg)`;
+      /* 轮廓层：以脚部为原点做 2–3% 拉伸，耳朵/头顶先变，笔记本和尾巴基本不动 */
+      this.poseEl.style.transform =
+        `translateY(${p.y}px) scale(${p.sx}, ${p.sy})`;
       const sx = (1 + (1 - sq.s) * 0.55) * breath;
-      /* 头和身体只做小幅倾斜，眼神交给眼层，避免整张脸平移 */
+      /* 眼神交给眼层，脸只做极小的跟随位移 */
       this.faceEl.style.transform =
-        `translate(${this.gaze.x * 1.6}px, ${this.gaze.y * 1.4}px) scale(${sx}, ${sq.s * blinkScale})`;
+        `translate(${this.gaze.x * 1.4}px, ${this.gaze.y * 1.1}px) scale(${sx}, ${sq.s * blinkScale})`;
 
       /* 影子随位移缩放变淡 */
       const lift = clamp(Math.hypot(this.pos.x, this.pos.y) / 320, 0, 0.45);
@@ -552,6 +618,10 @@
     destroy() {
       DobbyEmo.instances.delete(this);
       removeEventListener("resize", this._onResize);
+      if (this._mqMotion) {
+        if (this._mqMotion.removeEventListener) this._mqMotion.removeEventListener("change", this._onMotionPref);
+        else if (this._mqMotion.removeListener) this._mqMotion.removeListener(this._onMotionPref);
+      }
       this.root.remove();
     }
 

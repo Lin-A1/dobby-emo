@@ -162,11 +162,24 @@ body {
   user-select: none; -webkit-user-drag: none;
   will-change: transform;
 }
-.dobby-bob { width: 100%; height: 100%; will-change: transform; }
+.dobby-bob {
+  width: 100%; height: 100%;
+  will-change: transform;
+  perspective: 900px;
+  perspective-origin: 50% 58%;
+}
 .dobby-tilt {
   width: 100%; height: 100%;
   will-change: transform;
-  transform-origin: 50% 62%;
+  /* 支点下移到胸口：转头时上面的大头摆得多，下面的笔记本和尾巴几乎不动 */
+  transform-origin: 50% 78%;
+}
+/* 轮廓层：以脚部为原点，表情只让耳朵/头顶产生 2–3% 的形变，
+   笔记本和尾巴基本钉在原地，避免整张贴纸一起缩放 */
+.dobby-pose {
+  width: 100%; height: 100%;
+  will-change: transform;
+  transform-origin: 50% 92%;
 }
 .dobby-face {
   width: 100%; height: 100%;
@@ -205,6 +218,28 @@ body {
   pointer-events: none;
 }
 .dobby-rings svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
+/* 睡觉时才浮出的 zzz：没有这段样式时三个 z 会一直排在角色脚下 */
+.dobby-zzz {
+  position: absolute; left: 74%; top: 22%;
+  display: flex; gap: 2px;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  color: var(--text-dim);
+  opacity: 0; pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.dobby.sleeping .dobby-zzz { opacity: .85; transform: none; }
+.dobby-zzz span { animation: dobby-zzz-float 2.4s ease-in-out infinite; }
+.dobby-zzz span:nth-child(2) { animation-delay: .18s; }
+.dobby-zzz span:nth-child(3) { animation-delay: .36s; }
+@keyframes dobby-zzz-float {
+  0%, 100% { transform: translateY(0); opacity: .55; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dobby-zzz span { animation: none; }
+}
 
 /* ---- 眼睛交给矢量眼环（js/eyering.js）----
    素材里烘焙的眼睛由 .f-patch（无眼补丁）抹掉，眼环层负责画。
